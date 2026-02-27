@@ -210,7 +210,7 @@ void textbox::set_frame_foreground(uint8_t r, uint8_t g, uint8_t b) {
 void textbox::draw() { render(); }
 
 void textbox::render() {
-  auto [term_height, term_width] = get_terminal_dimensions();
+  auto [term_width, term_height] = get_terminal_dimensions();
   unsigned content_width = term_width - left_margin - right_margin;
 
   // Account for frame borders
@@ -466,7 +466,7 @@ std::vector<std::string> textbox::wrap_paragraph(const std::string &text,
       if (break_point < text.size()) {
         size_t last_space = text.rfind(' ', break_point);
         if (last_space != std::string::npos && last_space > pos)
-          break_point = last_space;  // Don't include the space in the line
+          break_point = last_space; // Don't include the space in the line
       }
 
       std::string line = text.substr(pos, break_point - pos);

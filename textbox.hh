@@ -123,7 +123,7 @@ private:
   std::string truncate_text(const std::string &text, unsigned width) const;
 
   /// Get terminal dimensions
-  /// @return Tuple of (height, width) in rows and columns
+  /// @return Tuple of (width, height) in rows and columns
   std::tuple<unsigned, unsigned> get_terminal_dimensions();
 
   /// Move cursor up by specified number of lines
