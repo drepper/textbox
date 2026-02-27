@@ -211,6 +211,16 @@ void textbox::draw() { render(); }
 
 void textbox::render() {
   auto [term_width, term_height] = get_terminal_dimensions();
+
+  // Calculate minimum width needed
+  unsigned min_width = left_margin + right_margin;
+  if (frame != frame_type::none)
+    min_width += 2;
+
+  // Ensure terminal is wide enough
+  if (term_width < min_width)
+    return; // Can't render - terminal too narrow
+
   unsigned content_width = term_width - left_margin - right_margin;
 
   // Account for frame borders
@@ -226,7 +236,7 @@ void textbox::render() {
   }
 
   // Clear to end of line when re-rendering to remove artifacts
-  std::string clear_eol = has_been_drawn ? "\e[K" : "";
+  std::string clear_eol = has_been_drawn && right_margin > 0 ? "\e[K" : "";
 
   // Calculate total widget height for next re-render
   unsigned new_height = 0;
