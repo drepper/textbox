@@ -1,0 +1,6 @@
+[submodule "build-tools"]
+	path = build-tools
+	url = https://github.com/drepper/build-tools
+[submodule "termdetect"]
+	path = termdetect
+	url = https://github.com/drepper/termdetect
