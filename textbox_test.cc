@@ -199,8 +199,6 @@ void test_mixed_content() {
 
 int main() {
   ::std::println("TextBox Widget Test Suite");
-  ::std::println("Version: {}", PROJECT_VERSION);
-  ::std::println("URL: {}", PROJECT_HOMEPAGE_URL);
 
   try {
     test_basic_widget();
