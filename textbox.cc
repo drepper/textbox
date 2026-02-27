@@ -466,7 +466,7 @@ std::vector<std::string> textbox::wrap_paragraph(const std::string &text,
       if (break_point < text.size()) {
         size_t last_space = text.rfind(' ', break_point);
         if (last_space != std::string::npos && last_space > pos)
-          break_point = last_space + 1;
+          break_point = last_space;  // Don't include the space in the line
       }
 
       std::string line = text.substr(pos, break_point - pos);
