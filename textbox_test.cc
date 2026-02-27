@@ -1,4 +1,3 @@
-#include "config.hh"
 #include "textbox.hh"
 
 #include <chrono>
