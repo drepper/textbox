@@ -238,14 +238,12 @@ void textbox::render() {
   // Clear to end of line when re-rendering to remove artifacts
   std::string clear_eol = has_been_drawn && right_margin > 0 ? "\e[K" : "";
 
-  // Calculate total widget height for next re-render
-  unsigned new_height = 0;
+  // Create left margin string
+  std::string left_margin_spaces(left_margin, ' ');
 
-  // Top frame
-  if (frame != frame_type::none)
-    ++new_height;
+  // Calculate total content lines needed
+  std::vector<std::string> all_lines;
 
-  // Count content lines for height calculation
   for (size_t i = 0; i < paragraphs.size(); ++i) {
     const auto &para = paragraphs[i];
 
@@ -254,33 +252,39 @@ void textbox::render() {
 
     if (para.is_reflow) {
       auto lines = wrap_paragraph(para.content, content_width);
-      new_height += lines.size();
+      all_lines.insert(all_lines.end(), lines.begin(), lines.end());
     } else {
-      // Count lines in fixed paragraph
+      // Fixed paragraph - split into lines
       std::string::size_type pos = 0;
       while (pos < para.content.size()) {
         auto newline_pos = para.content.find('\n', pos);
         if (newline_pos == std::string::npos)
           newline_pos = para.content.size();
-        ++new_height;
+        std::string line = para.content.substr(pos, newline_pos - pos);
+        all_lines.push_back(truncate_text(line, content_width));
         pos = newline_pos + 1;
       }
     }
 
     // Empty line between paragraphs
     if (i + 1 < paragraphs.size() && !paragraphs[i + 1].content.empty())
-      ++new_height;
+      all_lines.push_back(std::string(content_width, ' '));
   }
 
-  // Bottom frame
+  // Calculate total widget height
+  unsigned new_height = all_lines.size();
   if (frame != frame_type::none)
-    ++new_height;
+    new_height += 2; // Top and bottom frame
 
-  // Create left margin string
-  std::string left_margin_spaces(left_margin, ' ');
+  // Step 1: Draw the frame structure
+  std::string frame_color = color_escape(frame_fg, true);
+  std::string text_color = color_escape(text_fg, true);
+  std::string bg_color =
+      (frame == frame_type::background) ? color_escape(text_bg, false) : "";
+  std::string content_spaces(content_width, ' ');
 
-  // Render top frame
   if (frame == frame_type::line) {
+    // Draw top frame
     if (!title.empty()) {
       auto metrics = measure_text(title, content_width);
       unsigned remaining = content_width - metrics.display_width;
@@ -291,13 +295,12 @@ void textbox::render() {
         horiz_line[i * 3 + 2] = '\x80';
       }
       writev_strs(fd,
-                  {left_margin_spaces, color_escape(frame_fg, true),
+                  {left_margin_spaces, frame_color,
                    "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}",
                    color_escape(title_fg, true), color_escape(text_bg, false),
-                   title.substr(0, metrics.byte_length), "\e[0m",
-                   color_escape(frame_fg, true), horiz_line,
-                   "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m", clear_eol,
-                   "\n"});
+                   title.substr(0, metrics.byte_length), "\e[0m", frame_color,
+                   horiz_line, "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m",
+                   clear_eol, "\n"});
     } else {
       std::string horiz_line(content_width * 3, '\0');
       for (unsigned i = 0; i < content_width; ++i) {
@@ -305,12 +308,32 @@ void textbox::render() {
         horiz_line[i * 3 + 1] = '\x94';
         horiz_line[i * 3 + 2] = '\x80';
       }
-      writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
+      writev_strs(fd, {left_margin_spaces, frame_color,
                        "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}", horiz_line,
                        "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m",
                        clear_eol, "\n"});
     }
+
+    // Draw content area with just borders
+    for (size_t i = 0; i < all_lines.size(); ++i)
+      writev_strs(fd, {left_margin_spaces, frame_color,
+                       "\N{BOX DRAWINGS LIGHT VERTICAL}", content_spaces,
+                       "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m", clear_eol, "\n"});
+
+    // Draw bottom frame
+    std::string horiz_line(content_width * 3, '\0');
+    for (unsigned i = 0; i < content_width; ++i) {
+      horiz_line[i * 3] = '\xe2';
+      horiz_line[i * 3 + 1] = '\x94';
+      horiz_line[i * 3 + 2] = '\x80';
+    }
+    writev_strs(fd,
+                {left_margin_spaces, frame_color,
+                 "\N{BOX DRAWINGS LIGHT ARC UP AND RIGHT}", horiz_line,
+                 "\N{BOX DRAWINGS LIGHT ARC UP AND LEFT}\e[0m", clear_eol,
+                 "\n"});
   } else if (frame == frame_type::background) {
+    // Draw top frame
     if (!title.empty()) {
       auto metrics = measure_text(title, content_width);
       unsigned remaining = content_width - metrics.display_width;
@@ -320,11 +343,11 @@ void textbox::render() {
         lower_half[i * 3 + 1] = '\x96';
         lower_half[i * 3 + 2] = '\x84';
       }
-      writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
-                       "\N{QUADRANT LOWER RIGHT}", color_escape(title_fg, true),
-                       color_escape(text_bg, false),
+      writev_strs(fd, {left_margin_spaces, frame_color,
+                       "\N{QUADRANT LOWER RIGHT}",
+                       color_escape(title_fg, true), color_escape(text_bg, false),
                        title.substr(0, metrics.byte_length), "\e[0m",
-                       color_escape(frame_fg, true), lower_half,
+                       frame_color, lower_half,
                        "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
     } else {
       std::string lower_half(content_width * 3, '\0');
@@ -333,102 +356,19 @@ void textbox::render() {
         lower_half[i * 3 + 1] = '\x96';
         lower_half[i * 3 + 2] = '\x84';
       }
-      writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
+      writev_strs(fd, {left_margin_spaces, frame_color,
                        "\N{QUADRANT LOWER RIGHT}", lower_half,
                        "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
     }
-  }
 
-  // Render paragraphs
-  std::string frame_color = color_escape(frame_fg, true);
-  std::string text_color = color_escape(text_fg, true);
-  std::string bg_color =
-      (frame == frame_type::background) ? color_escape(text_bg, false) : "";
+    // Draw content area with just borders
+    for (size_t i = 0; i < all_lines.size(); ++i)
+      writev_strs(fd,
+                  {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
+                   bg_color, content_spaces, "\e[0m", frame_color,
+                   "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
 
-  for (size_t i = 0; i < paragraphs.size(); ++i) {
-    const auto &para = paragraphs[i];
-
-    if (para.content.empty())
-      continue;
-
-    if (para.is_reflow) {
-      // Wrap paragraph
-      auto lines = wrap_paragraph(para.content, content_width);
-      for (const auto &line : lines) {
-        if (frame == frame_type::line)
-          writev_strs(fd, {left_margin_spaces, frame_color,
-                           "\N{BOX DRAWINGS LIGHT VERTICAL}", text_color, line,
-                           frame_color, "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m",
-                           clear_eol, "\n"});
-        else if (frame == frame_type::background)
-          writev_strs(fd,
-                      {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
-                       bg_color, text_color, line, "\e[0m", frame_color,
-                       "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
-        else
-          writev_strs(fd, {left_margin_spaces, text_color, bg_color, line,
-                           "\e[0m", clear_eol, "\n"});
-      }
-    } else {
-      // Fixed paragraph - render lines as-is, truncating if needed
-      std::string::size_type pos = 0;
-      while (pos < para.content.size()) {
-        auto newline_pos = para.content.find('\n', pos);
-        if (newline_pos == std::string::npos)
-          newline_pos = para.content.size();
-
-        std::string line = para.content.substr(pos, newline_pos - pos);
-        line = truncate_text(line, content_width);
-
-        if (frame == frame_type::line)
-          writev_strs(fd, {left_margin_spaces, frame_color,
-                           "\N{BOX DRAWINGS LIGHT VERTICAL}", text_color, line,
-                           frame_color, "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m",
-                           clear_eol, "\n"});
-        else if (frame == frame_type::background)
-          writev_strs(fd,
-                      {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
-                       bg_color, text_color, line, "\e[0m", frame_color,
-                       "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
-        else
-          writev_strs(fd, {left_margin_spaces, text_color, bg_color, line,
-                           "\e[0m", clear_eol, "\n"});
-
-        pos = newline_pos + 1;
-      }
-    }
-
-    // Add empty line between paragraphs (except for last empty paragraph)
-    if (i + 1 < paragraphs.size() && !paragraphs[i + 1].content.empty()) {
-      std::string spaces = std::string(content_width, ' ');
-      if (frame == frame_type::line)
-        writev_strs(fd,
-                    {left_margin_spaces, frame_color,
-                     "\N{BOX DRAWINGS LIGHT VERTICAL}", spaces,
-                     "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m", clear_eol, "\n"});
-      else if (frame == frame_type::background)
-        writev_strs(fd,
-                    {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
-                     bg_color, spaces, "\e[0m", frame_color,
-                     "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
-      else
-        writev_strs(fd, {left_margin_spaces, bg_color, clear_eol, "\n"});
-    }
-  }
-
-  // Render bottom frame
-  if (frame == frame_type::line) {
-    std::string horiz_line(content_width * 3, '\0');
-    for (unsigned i = 0; i < content_width; ++i) {
-      horiz_line[i * 3] = '\xe2';
-      horiz_line[i * 3 + 1] = '\x94';
-      horiz_line[i * 3 + 2] = '\x80';
-    }
-    writev_strs(fd, {left_margin_spaces, frame_color,
-                     "\N{BOX DRAWINGS LIGHT ARC UP AND RIGHT}", horiz_line,
-                     "\N{BOX DRAWINGS LIGHT ARC UP AND LEFT}\e[0m", clear_eol,
-                     "\n"});
-  } else if (frame == frame_type::background) {
+    // Draw bottom frame
     std::string upper_half(content_width * 3, '\0');
     for (unsigned i = 0; i < content_width; ++i) {
       upper_half[i * 3] = '\xe2';
@@ -438,6 +378,37 @@ void textbox::render() {
     writev_strs(fd,
                 {left_margin_spaces, frame_color, "\N{QUADRANT UPPER RIGHT}",
                  upper_half, "\N{QUADRANT UPPER LEFT}\e[0m", clear_eol, "\n"});
+  } else {
+    // No frame - just draw empty lines with background
+    for (size_t i = 0; i < all_lines.size(); ++i)
+      writev_strs(fd, {left_margin_spaces, bg_color, content_spaces, "\e[0m",
+                       clear_eol, "\n"});
+  }
+
+  // Step 2: Move cursor back to fill in content
+  if (!all_lines.empty()) {
+    // Move back to first content line
+    unsigned lines_to_move = all_lines.size();
+    if (frame != frame_type::none)
+      lines_to_move++; // Skip bottom frame
+    move_cursor_up(lines_to_move);
+
+    // Fill in each line of content
+    for (const auto &line : all_lines) {
+      // Position cursor after left margin and left border
+      unsigned column = left_margin;
+      if (frame != frame_type::none)
+        column++; // Skip left border
+      std::string move_right =
+          column > 0 ? std::format("\e[{}C", column) : "";
+
+      writev_strs(fd, {"\r", move_right, text_color, bg_color, line, "\e[0m\n"});
+    }
+
+    // Move cursor past bottom frame to line after widget
+    if (frame != frame_type::none) {
+      write_str(fd, "\n");
+    }
   }
 
   // Update height for next re-render
