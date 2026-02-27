@@ -63,7 +63,9 @@ include(GNUInstallDirs)
 enable_testing()
 cmake_policy(SET CMP0110 NEW)
 
-add_subdirectory(termdetect)
+if(NOT TARGET termdetect)
+  add_subdirectory(termdetect)
+endif()
 
 add_library(textbox textbox.cc textbox.hh)
 target_include_directories(textbox PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
