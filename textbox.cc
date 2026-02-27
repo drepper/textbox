@@ -207,9 +207,7 @@ void textbox::set_frame_foreground(uint8_t r, uint8_t g, uint8_t b) {
     render();
 }
 
-void textbox::draw() {
-  render();
-}
+void textbox::draw() { render(); }
 
 void textbox::render() {
   auto [term_height, term_width] = get_terminal_dimensions();
@@ -283,11 +281,13 @@ void textbox::render() {
         horiz_line[i * 3 + 2] = '\x80';
       }
       writev_strs(fd,
-                  {left_margin_spaces, color_escape(frame_fg, true), "\u256d",
+                  {left_margin_spaces, color_escape(frame_fg, true),
+                   "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}",
                    color_escape(title_fg, true), color_escape(text_bg, false),
                    title.substr(0, metrics.byte_length), "\e[0m",
-                   color_escape(frame_fg, true), horiz_line, "\u256e\e[0m",
-                   clear_eol, "\n"});
+                   color_escape(frame_fg, true), horiz_line,
+                   "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m", clear_eol,
+                   "\n"});
     } else {
       std::string horiz_line(content_width * 3, '\0');
       for (unsigned i = 0; i < content_width; ++i) {
@@ -296,7 +296,9 @@ void textbox::render() {
         horiz_line[i * 3 + 2] = '\x80';
       }
       writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
-                       "\u256d", horiz_line, "\u256e\e[0m", clear_eol, "\n"});
+                       "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}", horiz_line,
+                       "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m",
+                       clear_eol, "\n"});
     }
   } else if (frame == frame_type::background) {
     if (!title.empty()) {
@@ -308,12 +310,12 @@ void textbox::render() {
         lower_half[i * 3 + 1] = '\x96';
         lower_half[i * 3 + 2] = '\x84';
       }
-      writev_strs(fd,
-                  {left_margin_spaces, color_escape(frame_fg, true), "\u2597",
-                   color_escape(title_fg, true), color_escape(text_bg, false),
-                   title.substr(0, metrics.byte_length), "\e[0m",
-                   color_escape(frame_fg, true), lower_half, "\u2596\e[0m",
-                   clear_eol, "\n"});
+      writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
+                       "\N{QUADRANT LOWER RIGHT}", color_escape(title_fg, true),
+                       color_escape(text_bg, false),
+                       title.substr(0, metrics.byte_length), "\e[0m",
+                       color_escape(frame_fg, true), lower_half,
+                       "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
     } else {
       std::string lower_half(content_width * 3, '\0');
       for (unsigned i = 0; i < content_width; ++i) {
@@ -322,7 +324,8 @@ void textbox::render() {
         lower_half[i * 3 + 2] = '\x84';
       }
       writev_strs(fd, {left_margin_spaces, color_escape(frame_fg, true),
-                       "\u2597", lower_half, "\u2596\e[0m", clear_eol, "\n"});
+                       "\N{QUADRANT LOWER RIGHT}", lower_half,
+                       "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
     }
   }
 
@@ -343,13 +346,15 @@ void textbox::render() {
       auto lines = wrap_paragraph(para.content, content_width);
       for (const auto &line : lines) {
         if (frame == frame_type::line)
-          writev_strs(fd, {left_margin_spaces, frame_color, "\u2502",
-                           text_color, line, frame_color, "\u2502\e[0m",
+          writev_strs(fd, {left_margin_spaces, frame_color,
+                           "\N{BOX DRAWINGS LIGHT VERTICAL}", text_color, line,
+                           frame_color, "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m",
                            clear_eol, "\n"});
         else if (frame == frame_type::background)
-          writev_strs(fd, {left_margin_spaces, frame_color, "\u2590", bg_color,
-                           text_color, line, "\e[0m", frame_color,
-                           "\u258c\e[0m", clear_eol, "\n"});
+          writev_strs(fd,
+                      {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
+                       bg_color, text_color, line, "\e[0m", frame_color,
+                       "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
         else
           writev_strs(fd, {left_margin_spaces, text_color, bg_color, line,
                            "\e[0m", clear_eol, "\n"});
@@ -366,13 +371,15 @@ void textbox::render() {
         line = truncate_text(line, content_width);
 
         if (frame == frame_type::line)
-          writev_strs(fd, {left_margin_spaces, frame_color, "\u2502",
-                           text_color, line, frame_color, "\u2502\e[0m",
+          writev_strs(fd, {left_margin_spaces, frame_color,
+                           "\N{BOX DRAWINGS LIGHT VERTICAL}", text_color, line,
+                           frame_color, "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m",
                            clear_eol, "\n"});
         else if (frame == frame_type::background)
-          writev_strs(fd, {left_margin_spaces, frame_color, "\u2590", bg_color,
-                           text_color, line, "\e[0m", frame_color,
-                           "\u258c\e[0m", clear_eol, "\n"});
+          writev_strs(fd,
+                      {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
+                       bg_color, text_color, line, "\e[0m", frame_color,
+                       "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
         else
           writev_strs(fd, {left_margin_spaces, text_color, bg_color, line,
                            "\e[0m", clear_eol, "\n"});
@@ -385,12 +392,15 @@ void textbox::render() {
     if (i + 1 < paragraphs.size() && !paragraphs[i + 1].content.empty()) {
       std::string spaces = std::string(content_width, ' ');
       if (frame == frame_type::line)
-        writev_strs(fd, {left_margin_spaces, frame_color, "\u2502", spaces,
-                         "\u2502\e[0m", clear_eol, "\n"});
+        writev_strs(fd,
+                    {left_margin_spaces, frame_color,
+                     "\N{BOX DRAWINGS LIGHT VERTICAL}", spaces,
+                     "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m", clear_eol, "\n"});
       else if (frame == frame_type::background)
-        writev_strs(fd, {left_margin_spaces, frame_color, "\u2590", bg_color,
-                         spaces, "\e[0m", frame_color, "\u258c\e[0m",
-                         clear_eol, "\n"});
+        writev_strs(fd,
+                    {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}",
+                     bg_color, spaces, "\e[0m", frame_color,
+                     "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
       else
         writev_strs(fd, {left_margin_spaces, bg_color, clear_eol, "\n"});
     }
@@ -404,8 +414,10 @@ void textbox::render() {
       horiz_line[i * 3 + 1] = '\x94';
       horiz_line[i * 3 + 2] = '\x80';
     }
-    writev_strs(fd, {left_margin_spaces, frame_color, "\u2570", horiz_line,
-                     "\u256f\e[0m", clear_eol, "\n"});
+    writev_strs(fd, {left_margin_spaces, frame_color,
+                     "\N{BOX DRAWINGS LIGHT ARC UP AND RIGHT}", horiz_line,
+                     "\N{BOX DRAWINGS LIGHT ARC UP AND LEFT}\e[0m", clear_eol,
+                     "\n"});
   } else if (frame == frame_type::background) {
     std::string upper_half(content_width * 3, '\0');
     for (unsigned i = 0; i < content_width; ++i) {
@@ -413,8 +425,9 @@ void textbox::render() {
       upper_half[i * 3 + 1] = '\x96';
       upper_half[i * 3 + 2] = '\x80';
     }
-    writev_strs(fd, {left_margin_spaces, frame_color, "\u259d", upper_half,
-                     "\u2598\e[0m", clear_eol, "\n"});
+    writev_strs(fd,
+                {left_margin_spaces, frame_color, "\N{QUADRANT UPPER RIGHT}",
+                 upper_half, "\N{QUADRANT UPPER LEFT}\e[0m", clear_eol, "\n"});
   }
 
   // Update height for next re-render
