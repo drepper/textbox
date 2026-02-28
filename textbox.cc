@@ -128,6 +128,7 @@ namespace widget {
 
     // Initialize title foreground from terminal default
     title_fg = term_info.default_foreground;
+    code_lang_fg = term_info.default_foreground;
   }
 
   textbox::~textbox()
@@ -366,71 +367,63 @@ namespace widget {
         std::string code = raw_markdown.substr(pos, code_end - pos);
 
         // Use source-highlight library if language is specified
-        std::string highlighted_code;
         bool has_highlighting = false;
+        std::stringstream code_stream;
         if (auto srchilite = find_source_highlight_data(language)) {
-          try {
-            // Create source-highlight instance
-            srchilite::SourceHighlight highlighter{"esc.outlang"};
+          // Create source-highlight instance
+          srchilite::SourceHighlight highlighter{"esc256.outlang"};
 
-            // Use input/output streams
-            std::istringstream input{code};
-            std::ostringstream output;
+          // Use input streams as needed by the source-highlight API.
+          std::istringstream input{code};
 
-            // Highlight the code
+          // Highlight the code
+          highlighter.highlight(input, code_stream, srchilite->fname);
+          if (! code_stream.eof()) {
+            code_stream.seekg(0);
             language = srchilite->stdname;
-            highlighter.highlight(input, output, srchilite->fname);
-            highlighted_code = output.str();
             has_highlighting = true;
-          }
-          catch (...) {
-            // If highlighting fails, fall through to default
           }
         }
 
-        // If source-highlight failed or no language, use default code style
-        if (highlighted_code.empty())
-          highlighted_code = code;
+        if (! has_highlighting)
+          code_stream = std::stringstream{code};
 
         // Build the complete code block with indentation and optional header
         std::string code_block;
-        std::string bg_escape = color_escape(code_block_bg, false);
 
         // Add language header if language is specified
-        if (! language.empty()) {
-          code_block += color_escape(code_fg, true) + color_escape(code_lang_bg, false) + "    [" + language + "]\e[0m\n";
-        }
+        if (! language.empty())
+          code_block += "    " + color_escape(code_lang_fg, true) + "🭪" + language + "🭨" + color_escape(code_lang_fg, false) + "\e[K\e[0m\n";
 
-        // For syntax-highlighted code, replace reset sequences to preserve
-        // background
-        if (has_highlighting) {
-          // Replace \e[0m and \e[m with \e[39m (reset foreground only) +
-          // background
-          std::string replacement = "\e[39m" + bg_escape;
-          size_t pos_replace = 0;
-          while ((pos_replace = highlighted_code.find("\e[0m", pos_replace)) != std::string::npos) {
-            highlighted_code.replace(pos_replace, 4, replacement);
-            pos_replace += replacement.length();
-          }
-          pos_replace = 0;
-          while ((pos_replace = highlighted_code.find("\e[m", pos_replace)) != std::string::npos) {
-            highlighted_code.replace(pos_replace, 3, replacement);
-            pos_replace += replacement.length();
-          }
-        }
+        std::string bg_escape = color_escape(code_block_bg, false);
 
         // Split code into lines and indent each line by 4 spaces
-        std::istringstream code_stream{highlighted_code};
         std::string line;
-        while (::std::getline(code_stream, line)) {
+        while (std::getline(code_stream, line)) {
+          if (has_highlighting) {
+            // Replace reset sequences to preserve background.  Replace \e[0m and \e[m with \e[39m
+            // (reset foreground only) + background
+            std::string replacement = "\e[39m" + bg_escape;
+            size_t pos_replace = 0;
+            while ((pos_replace = line.find("\e[0m", pos_replace)) != std::string::npos) {
+              line.replace(pos_replace, 4, replacement);
+              pos_replace += replacement.length();
+            }
+            pos_replace = 0;
+            while ((pos_replace = line.find("\e[m", pos_replace)) != std::string::npos) {
+              line.replace(pos_replace, 3, replacement);
+              pos_replace += replacement.length();
+            }
+          }
+
           // Apply background color and 4-space indentation
-          code_block += bg_escape + "    ";
+          code_block += "    " + bg_escape;
 
           // If no syntax highlighting (plain code), add foreground color
-          if (! has_highlighting)
-            code_block += color_escape(code_fg, true);
+          // if (! has_highlighting)
+          code_block += color_escape(code_fg, true);
 
-          code_block += line + "\e[0m\n";
+          code_block += line + "\e[K\e[0m\n";
         }
 
         // Add as fixed paragraph
