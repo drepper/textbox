@@ -69,7 +69,7 @@ endif()
 
 add_library(textbox textbox.cc textbox.hh)
 target_include_directories(textbox PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(textbox PUBLIC termdetect unistring)
+target_link_libraries(textbox PUBLIC termdetect unistring source-highlight)
 set_property(TARGET textbox PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
 add_executable(textbox_test textbox_test.cc config.hh)

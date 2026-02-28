@@ -39,6 +39,10 @@ public:
   /// @param lines Vector of text lines
   void add_block(const std::vector<std::string> &lines);
 
+  /// Add markdown content
+  /// @param markdown Markdown text to parse and add
+  void add_markdown(const std::string &markdown);
+
   /// Set frame style
   /// @param ft Frame type
   void set_frame(frame_type ft);
@@ -92,7 +96,25 @@ private:
   terminal::info::color frame_fg{129, 27, 27};
   terminal::info::color title_fg{};
 
+  // Markdown highlighting colors
+  terminal::info::color bold_fg{255, 255, 255};
+  terminal::info::color italic_fg{180, 180, 255};
+  terminal::info::color strikethrough_fg{100, 100, 100};
+  terminal::info::color code_fg{255, 200, 100};
+  terminal::info::color code_bg{40, 40, 40};
+  terminal::info::color code_block_bg{20, 20, 20};
+  terminal::info::color code_lang_bg{16, 16, 16};
+
+  // Heading colors (decreasing brightness)
+  terminal::info::color h1_fg{255, 255, 255};
+  terminal::info::color h2_fg{230, 230, 230};
+  terminal::info::color h3_fg{200, 200, 200};
+  terminal::info::color h4_fg{170, 170, 170};
+  terminal::info::color h5_fg{140, 140, 140};
+  terminal::info::color h6_fg{110, 110, 110};
+
   std::vector<paragraph> paragraphs{};
+  std::string raw_markdown{};
 
   // Track widget height for re-rendering
   unsigned widget_height = 0;
@@ -102,6 +124,9 @@ private:
 
   /// Render the widget to the terminal
   void render();
+
+  /// Parse markdown content and populate paragraphs
+  void parse_markdown();
 
   /// Calculate display width of text (accounting for multi-column chars and
   /// escape sequences)

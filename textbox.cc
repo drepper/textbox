@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdio>
 #include <format>
+#include <sstream>
 #include <string_view>
 
 #include <sys/uio.h>
@@ -10,6 +11,9 @@
 
 #include <unistr.h>
 #include <uniwidth.h>
+
+#include <srchilite/sourcehighlight.h>
+#include <srchilite/langmap.h>
 
 namespace widget {
 
@@ -171,6 +175,12 @@ void textbox::add_block(const std::vector<std::string> &lines) {
   render();
 }
 
+void textbox::add_markdown(const std::string &markdown) {
+  raw_markdown += markdown;
+  parse_markdown();
+  render();
+}
+
 void textbox::set_frame(frame_type ft) {
   frame = ft;
   if (has_been_drawn)
@@ -209,6 +219,344 @@ void textbox::set_frame_foreground(uint8_t r, uint8_t g, uint8_t b) {
 
 void textbox::draw() { render(); }
 
+void textbox::parse_markdown() {
+  // Clear all paragraphs
+  paragraphs.clear();
+  paragraphs.emplace_back(); // Start with empty paragraph
+
+  if (raw_markdown.empty())
+    return;
+
+  size_t pos = 0;
+  std::string current_para;
+  bool at_line_start = true;
+
+  while (pos < raw_markdown.size()) {
+    // Check for heading at start of line
+    if (at_line_start && raw_markdown[pos] == '#') {
+      // Count heading level
+      size_t heading_level = 0;
+      size_t hash_pos = pos;
+      while (hash_pos < raw_markdown.size() && raw_markdown[hash_pos] == '#' &&
+             heading_level < 6) {
+        ++heading_level;
+        ++hash_pos;
+      }
+
+      // Check for space after hashes
+      if (hash_pos < raw_markdown.size() &&
+          (raw_markdown[hash_pos] == ' ' || raw_markdown[hash_pos] == '\t')) {
+        // Extract heading text until newline
+        ++hash_pos; // Skip space
+        size_t heading_start = hash_pos;
+        size_t heading_end = raw_markdown.find('\n', heading_start);
+        if (heading_end == std::string::npos)
+          heading_end = raw_markdown.size();
+
+        std::string heading_text =
+            raw_markdown.substr(heading_start, heading_end - heading_start);
+
+        // Trim trailing whitespace
+        size_t last = heading_text.find_last_not_of(" \t\r");
+        if (last != std::string::npos)
+          heading_text = heading_text.substr(0, last + 1);
+
+        // Save any pending paragraph
+        if (!current_para.empty()) {
+          paragraphs.back().content = current_para;
+          current_para.clear();
+          paragraphs.emplace_back();
+        }
+
+        // Build heading with appropriate color based on level
+        std::string formatted_heading;
+        switch (heading_level) {
+        case 1:
+          formatted_heading = color_escape(h1_fg, true) + heading_text + "\e[0m";
+          break;
+        case 2:
+          formatted_heading = color_escape(h2_fg, true) + heading_text + "\e[0m";
+          break;
+        case 3:
+          formatted_heading = color_escape(h3_fg, true) + heading_text + "\e[0m";
+          break;
+        case 4:
+          formatted_heading = color_escape(h4_fg, true) + heading_text + "\e[0m";
+          break;
+        case 5:
+          formatted_heading = color_escape(h5_fg, true) + heading_text + "\e[0m";
+          break;
+        case 6:
+          formatted_heading = color_escape(h6_fg, true) + heading_text + "\e[0m";
+          break;
+        default:
+          formatted_heading = heading_text;
+          break;
+        }
+
+        // Save any pending paragraph content first
+        if (!current_para.empty()) {
+          if (!paragraphs.back().content.empty())
+            paragraphs.emplace_back();
+          paragraphs.back().content = current_para;
+          current_para.clear();
+          paragraphs.emplace_back(); // Create new empty paragraph for heading
+        }
+
+        // Add heading as new paragraph (always fixed to preserve formatting)
+        if (!paragraphs.back().content.empty())
+          paragraphs.emplace_back();
+        paragraphs.back().content = formatted_heading;
+        paragraphs.back().is_reflow = false;
+
+        // Move past heading and its newline
+        pos = heading_end;
+        if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
+          ++pos;
+          at_line_start = true;
+        }
+
+        continue;
+      }
+    }
+
+    // Check for code block (only at line start)
+    if (at_line_start && pos + 3 <= raw_markdown.size() &&
+        raw_markdown.substr(pos, 3) == "```") {
+      // Save any pending paragraph content
+      if (!current_para.empty()) {
+        if (!paragraphs.back().content.empty())
+          paragraphs.emplace_back();
+        paragraphs.back().content = current_para;
+        current_para.clear();
+        paragraphs.emplace_back(); // Create new empty paragraph for code block
+      }
+
+      // Find end of opening ```
+      pos += 3;
+      size_t lang_start = pos;
+      size_t lang_end = raw_markdown.find('\n', pos);
+      if (lang_end == std::string::npos)
+        break;
+
+      std::string language = raw_markdown.substr(lang_start, lang_end - lang_start);
+      // Trim whitespace
+      size_t first = language.find_first_not_of(" \t\r");
+      size_t last = language.find_last_not_of(" \t\r");
+      if (first != std::string::npos)
+        language = language.substr(first, last - first + 1);
+
+      pos = lang_end + 1;
+
+      // Find closing ```
+      size_t code_end = raw_markdown.find("\n```", pos);
+      if (code_end == std::string::npos)
+        code_end = raw_markdown.find("```", pos);
+      if (code_end == std::string::npos)
+        code_end = raw_markdown.size();
+
+      std::string code = raw_markdown.substr(pos, code_end - pos);
+
+      // Use source-highlight library if language is specified
+      std::string highlighted_code;
+      bool has_highlighting = false;
+      if (!language.empty()) {
+        try {
+          // Create source-highlight instance
+          srchilite::SourceHighlight highlighter{"esc.outlang"};
+
+          // Use input/output streams
+          std::istringstream input{code};
+          std::ostringstream output;
+
+          // Highlight the code
+          highlighter.highlight(input, output, language);
+          highlighted_code = output.str();
+          has_highlighting = true;
+        } catch (...) {
+          // If highlighting fails, fall through to default
+        }
+      }
+
+      // If source-highlight failed or no language, use default code style
+      if (highlighted_code.empty())
+        highlighted_code = code;
+
+      // Build the complete code block with indentation and optional header
+      std::string code_block;
+      std::string bg_escape = color_escape(code_block_bg, false);
+
+      // Add language header if language is specified
+      if (!language.empty()) {
+        code_block += color_escape(code_fg, true) +
+                      color_escape(code_lang_bg, false) + "    [" + language +
+                      "]\e[0m\n";
+      }
+
+      // For syntax-highlighted code, replace reset sequences to preserve background
+      if (has_highlighting) {
+        // Replace \e[0m and \e[m with \e[39m (reset foreground only) + background
+        std::string replacement = "\e[39m" + bg_escape;
+        size_t pos_replace = 0;
+        while ((pos_replace = highlighted_code.find("\e[0m", pos_replace)) !=
+               std::string::npos) {
+          highlighted_code.replace(pos_replace, 4, replacement);
+          pos_replace += replacement.length();
+        }
+        pos_replace = 0;
+        while ((pos_replace = highlighted_code.find("\e[m", pos_replace)) !=
+               std::string::npos) {
+          highlighted_code.replace(pos_replace, 3, replacement);
+          pos_replace += replacement.length();
+        }
+      }
+
+      // Split code into lines and indent each line by 4 spaces
+      std::istringstream code_stream{highlighted_code};
+      std::string line;
+      while (::std::getline(code_stream, line)) {
+        // Apply background color and 4-space indentation
+        code_block += bg_escape + "    ";
+
+        // If no syntax highlighting (plain code), add foreground color
+        if (!has_highlighting)
+          code_block += color_escape(code_fg, true);
+
+        code_block += line + "\e[0m\n";
+      }
+
+      // Add as fixed paragraph
+      if (!paragraphs.back().content.empty())
+        paragraphs.emplace_back();
+      paragraphs.back().content = code_block;
+      paragraphs.back().is_reflow = false;
+
+      // Skip past closing ```
+      pos = code_end;
+      if (pos < raw_markdown.size() && raw_markdown[pos] == '\n')
+        ++pos;
+      if (pos + 3 <= raw_markdown.size() &&
+          raw_markdown.substr(pos, 3) == "```")
+        pos += 3;
+      if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
+        ++pos;
+        at_line_start = true;
+      }
+
+      continue;
+    }
+
+    // Non-heading, non-code-block character - no longer at line start
+    at_line_start = false;
+
+    // Process regular text with inline formatting
+    char ch = raw_markdown[pos];
+
+    if (ch == '\n') {
+      ++pos;
+      at_line_start = true;
+      // Check for paragraph break (double newline)
+      if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
+        // Paragraph break
+        if (!current_para.empty()) {
+          if (!paragraphs.back().content.empty())
+            paragraphs.emplace_back();
+          paragraphs.back().content = current_para;
+          current_para.clear();
+          paragraphs.emplace_back(); // Create new empty paragraph
+        }
+        ++pos; // Skip second newline
+      } else if (!current_para.empty()) {
+        // Single newline becomes space in reflowed text (if we're in a paragraph)
+        current_para += ' ';
+      }
+      continue;
+    }
+
+    // Skip leading whitespace at line start (but not in middle of paragraph)
+    if (at_line_start && (ch == ' ' || ch == '\t')) {
+      ++pos;
+      continue;
+    }
+
+    // Check for inline code `...`
+    if (ch == '`') {
+      size_t end = raw_markdown.find('`', pos + 1);
+      if (end != std::string::npos) {
+        std::string code_text = raw_markdown.substr(pos + 1, end - pos - 1);
+        current_para += color_escape(code_fg, true) +
+                        color_escape(code_bg, false) + code_text + "\e[0m";
+        pos = end + 1;
+        continue;
+      }
+    }
+
+    // Check for bold **...**
+    if (pos + 1 < raw_markdown.size() && ch == '*' &&
+        raw_markdown[pos + 1] == '*') {
+      size_t end = raw_markdown.find("**", pos + 2);
+      if (end != std::string::npos) {
+        std::string bold_text = raw_markdown.substr(pos + 2, end - pos - 2);
+        current_para += "\e[1m" + color_escape(bold_fg, true) + bold_text +
+                        "\e[22m\e[0m";
+        pos = end + 2;
+        continue;
+      }
+    }
+
+    // Check for italic *...*
+    if (ch == '*') {
+      size_t end = raw_markdown.find('*', pos + 1);
+      if (end != std::string::npos) {
+        std::string italic_text = raw_markdown.substr(pos + 1, end - pos - 1);
+        current_para += "\e[3m" + color_escape(italic_fg, true) +
+                        italic_text + "\e[23m\e[0m";
+        pos = end + 1;
+        continue;
+      }
+    }
+
+    // Check for strikethrough ~~...~~
+    if (pos + 1 < raw_markdown.size() && ch == '~' &&
+        raw_markdown[pos + 1] == '~') {
+      size_t end = raw_markdown.find("~~", pos + 2);
+      if (end != std::string::npos) {
+        std::string strike_text = raw_markdown.substr(pos + 2, end - pos - 2);
+        current_para += "\e[9m" + color_escape(strikethrough_fg, true) +
+                        strike_text + "\e[29m\e[0m";
+        pos = end + 2;
+        continue;
+      }
+    }
+
+    // Regular character
+    current_para += ch;
+    ++pos;
+  }
+
+  // Add final paragraph if not empty
+  if (!current_para.empty()) {
+    if (!paragraphs.back().content.empty())
+      paragraphs.emplace_back();
+    paragraphs.back().content = current_para;
+  }
+
+  // Ensure there's always an empty paragraph at the end
+  if (paragraphs.empty() || !paragraphs.back().content.empty())
+    paragraphs.emplace_back();
+
+  // Remove any empty paragraphs except the last one
+  if (paragraphs.size() > 1) {
+    auto it = paragraphs.begin();
+    while (it != paragraphs.end() - 1) {
+      if (it->content.empty())
+        it = paragraphs.erase(it);
+      else
+        ++it;
+    }
+  }
+}
+
 void textbox::render() {
   auto [term_width, term_height] = get_terminal_dimensions();
 
@@ -229,19 +577,13 @@ void textbox::render() {
 
   int fd = term_info.get_fd();
 
-  // If re-rendering, move cursor back to start of widget
-  if (has_been_drawn) {
-    move_cursor_up(widget_height);
-    write_str(fd, "\r"); // Move to column 1
-  }
-
   // Clear to end of line when re-rendering to remove artifacts
   std::string clear_eol = has_been_drawn && right_margin > 0 ? "\e[K" : "";
 
   // Create left margin string
   std::string left_margin_spaces(left_margin, ' ');
 
-  // Calculate total content lines needed
+  // Calculate total content lines needed FIRST (before moving cursor)
   std::vector<std::string> all_lines;
 
   for (size_t i = 0; i < paragraphs.size(); ++i) {
@@ -275,6 +617,12 @@ void textbox::render() {
   unsigned new_height = all_lines.size();
   if (frame != frame_type::none)
     new_height += 2; // Top and bottom frame
+
+  // NOW move cursor back to start of widget (using OLD height)
+  if (has_been_drawn) {
+    move_cursor_up(widget_height);
+    write_str(fd, "\r"); // Move to column 1
+  }
 
   // Step 1: Draw the frame structure
   std::string frame_color = color_escape(frame_fg, true);

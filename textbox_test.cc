@@ -194,6 +194,64 @@ void test_mixed_content() {
   }
 }
 
+void test_markdown() {
+  ::std::println("\n=== Test 11: Markdown Formatting ===");
+
+  auto term = terminal::info::alloc();
+  {
+    widget::textbox box{*term, "Markdown Demo"};
+
+    box.add_markdown("# Heading Level 1\n\n");
+    box.add_markdown("## Heading Level 2\n\n");
+    box.add_markdown("### Heading Level 3\n\n");
+    box.add_markdown("#### Heading Level 4\n\n");
+    box.add_markdown("##### Heading Level 5\n\n");
+    box.add_markdown("###### Heading Level 6\n\n");
+
+    box.add_markdown(
+        "This paragraph demonstrates **bold text**, *italic text*, "
+        "~~strikethrough text~~, and `inline code`.\n\n");
+
+    box.add_markdown("Here is a C++ code example:\n\n");
+    box.add_markdown(R"(```cpp
+#include <iostream>
+
+int main() {
+    std::cout << "Hello, World!\n";
+    return 0;
+}
+```
+
+)");
+
+    box.add_markdown("And here is a Python example:\n\n");
+    box.add_markdown(R"(```python
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))
+```
+
+)");
+
+    box.add_markdown(
+        "You can **mix** *different* ~~styles~~ with `code` in the "
+        "same paragraph.\n\n");
+
+    box.add_markdown(
+        "Code blocks can also be used without language specification:\n\n");
+    box.add_markdown(R"(```
+This is plain text in a code block.
+It will use the default code styling.
+```
+)");
+
+    ::std::this_thread::sleep_for(::std::chrono::seconds(5));
+  }
+}
+
 } // anonymous namespace
 
 int main() {
@@ -210,6 +268,7 @@ int main() {
     test_long_text_wrapping();
     test_escape_sequences();
     test_mixed_content();
+    test_markdown();
 
     ::std::println("\n\nAll tests completed successfully!");
     return 0;
