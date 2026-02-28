@@ -937,21 +937,19 @@ namespace widget {
             list_counters[j] = 0;
 
           // Build list item prefix (indentation + bullet/number)
-          std::string indent_str(para.list_level * 2, ' ');
-          std::string bullet_str;
+          std::string list_prefix = blockquote_prefix;
+          list_prefix.append(para.list_level * 2, ' ');
 
           // Add bullet or number
           if (para.is_ordered)
-            bullet_str = std::format("{}. ", list_counters[para.list_level]);
+            std::format_to(std::back_inserter(list_prefix), "{}. ", list_counters[para.list_level]);
           else {
-            static constexpr const char* bullets[] = {"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-", "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
-            unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
-            bullet_str = std::string(bullets[bullet_index]) + " ";
+            static constexpr const std::array bullets{"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-", "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
+            auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
+            std::format_to(std::back_inserter(list_prefix), "{} ", bullets[bullet_index]);
           }
 
-          std::string list_prefix = indent_str + bullet_str;
-          std::string full_prefix = blockquote_prefix + list_prefix;
-          unsigned prefix_width = calculate_display_width(full_prefix);
+          unsigned prefix_width = calculate_display_width(list_prefix);
 
           // Calculate available width for content
           unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
@@ -960,23 +958,20 @@ namespace widget {
           auto wrapped_lines = wrap_paragraph(para.content, available_width);
 
           // Add first line with full prefix
-          if (!wrapped_lines.empty()) {
-            all_lines.push_back(full_prefix + wrapped_lines[0]);
+          if (! wrapped_lines.empty()) {
+            all_lines.push_back(std::move(list_prefix) + wrapped_lines[0]);
 
             // Add continuation lines with hanging indent
             std::string continuation_indent(prefix_width, ' ');
-            for (size_t i = 1; i < wrapped_lines.size(); ++i) {
-              all_lines.push_back(continuation_indent + wrapped_lines[i]);
-            }
+            for (size_t j = 1; j < wrapped_lines.size(); ++j)
+              all_lines.push_back(continuation_indent + wrapped_lines[j]);
           }
         } else {
           // Regular blockquote (not a list)
           unsigned available_width = content_width > indent ? content_width - indent : 1;
           auto lines = wrap_paragraph(para.content, available_width);
-          for (auto& line : lines) {
-            std::string prefixed_line = blockquote_prefix + line;
-            all_lines.push_back(prefixed_line);
-          }
+          for (auto& line : lines)
+            all_lines.push_back(blockquote_prefix + line);
         }
       } else if (para.is_list_item) {
         // List item - compute prefix during rendering
@@ -1025,13 +1020,13 @@ namespace widget {
         auto wrapped_lines = wrap_paragraph(para.content, available_width);
 
         // Add first line with prefix
-        if (!wrapped_lines.empty()) {
+        if (! wrapped_lines.empty()) {
           all_lines.push_back(full_prefix + wrapped_lines[0]);
 
           // Add continuation lines with hanging indent
           std::string continuation_indent(prefix_width, ' ');
-          for (size_t i = 1; i < wrapped_lines.size(); ++i) {
-            all_lines.push_back(continuation_indent + wrapped_lines[i]);
+          for (size_t j = 1; j < wrapped_lines.size(); ++j) {
+            all_lines.push_back(continuation_indent + wrapped_lines[j]);
           }
         }
       } else if (para.is_reflow) {
