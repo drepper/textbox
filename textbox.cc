@@ -618,6 +618,18 @@ namespace widget {
             }
           }
 
+          // Check for italic _..._
+          if (ch == '_') {
+            size_t end = quote_content.find('_', fmt_pos + 1);
+            if (end != std::string::npos) {
+              std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
+              formatted_content +=
+                  "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+              fmt_pos = end + 1;
+              continue;
+            }
+          }
+
           // Check for strikethrough ~~...~~
           if (fmt_pos + 1 < quote_content.size() && ch == '~' && quote_content[fmt_pos + 1] == '~') {
             size_t end = quote_content.find("~~", fmt_pos + 2);
@@ -818,6 +830,17 @@ namespace widget {
       // Check for italic *...*
       if (ch == '*') {
         size_t end = raw_markdown.find('*', pos + 1);
+        if (end != std::string::npos) {
+          std::string italic_text = raw_markdown.substr(pos + 1, end - pos - 1);
+          current_para += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+          pos = end + 1;
+          continue;
+        }
+      }
+
+      // Check for italic _..._
+      if (ch == '_') {
+        size_t end = raw_markdown.find('_', pos + 1);
         if (end != std::string::npos) {
           std::string italic_text = raw_markdown.substr(pos + 1, end - pos - 1);
           current_para += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";

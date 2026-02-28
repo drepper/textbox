@@ -224,7 +224,7 @@ namespace {
 
       box.add_markdown(
           "This paragraph demonstrates **bold text**, *italic text*, "
-          "~~strikethrough text~~, and `inline code`.\n\n"
+          "_italic with underscores_, ~~strikethrough text~~, and `inline code`.\n\n"
       );
 
       box.add_markdown("Here is a C++ code example:\n\n");
@@ -355,7 +355,7 @@ It will use the default code styling.
 
       box.add_markdown("## Blockquote with Formatting\n\n");
       box.add_markdown("> This has **bold** and *italic* text.\n");
-      box.add_markdown("> Also `inline code` and ~~strikethrough~~.\n\n");
+      box.add_markdown("> Also _italic with underscores_, `inline code` and ~~strikethrough~~.\n\n");
 
       box.add_markdown("## Blockquote with Lists\n\n");
       box.add_markdown("> Here's a list in a blockquote:\n");
