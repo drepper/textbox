@@ -115,6 +115,65 @@ namespace widget {
       return result;
     }
 
+    /// Replace \e[K and \e[0K with spaces and cursor repositioning
+    /// @param text Text containing potential clear-to-EOL sequences
+    /// @param content_width Width to clear to
+    /// @return Text with escape sequences replaced
+    std::string replace_clear_eol(const std::string& text, unsigned content_width)
+    {
+      std::string result;
+      size_t pos = 0;
+
+      while (pos < text.size()) {
+        // Look for \e[K or \e[0K
+        size_t esc_pos = text.find("\e[", pos);
+        if (esc_pos == std::string::npos) {
+          // No more escape sequences, append rest
+          result += text.substr(pos);
+          break;
+        }
+
+        // Check if it's a clear-to-EOL sequence
+        size_t check_pos = esc_pos + 2;
+        bool is_clear_eol = false;
+        unsigned num_chars = 0;
+
+        if (check_pos < text.size() && text[check_pos] == 'K') {
+          // \e[K
+          is_clear_eol = true;
+          num_chars = 3;
+        } else if (check_pos + 1 < text.size() && text[check_pos] == '0' && text[check_pos + 1] == 'K') {
+          // \e[0K
+          is_clear_eol = true;
+          num_chars = 4;
+        }
+
+        if (is_clear_eol) {
+          // Append text up to escape sequence
+          result += text.substr(pos, esc_pos - pos);
+
+          // Calculate current display width
+          unsigned current_width = measure_text(result, content_width).display_width;
+
+          // Add spaces to fill to content_width
+          if (current_width < content_width) {
+            unsigned spaces_needed = content_width - current_width;
+            result += std::string(spaces_needed, ' ');
+            // Move cursor back
+            result += std::format("\e[{}D", spaces_needed);
+          }
+
+          pos = esc_pos + num_chars;
+        } else {
+          // Not a clear-to-EOL, just copy the escape sequence start and continue
+          result += text.substr(pos, check_pos - pos);
+          pos = check_pos;
+        }
+      }
+
+      return result;
+    }
+
   } // anonymous namespace
 
   textbox::textbox(const terminal::info& term, const std::string& name)
@@ -393,8 +452,9 @@ namespace widget {
 
         // Add language header if language is specified
         if (! language.empty())
-          code_block += "    " + color_escape(code_lang_fg, true) + "🭪" + language + "🭨" + color_escape(code_lang_fg, false) + "\e[K\e[0m\n";
+          code_block += "    " + color_escape(code_lang_fg, true) + "🭪" + language + "🭨" + color_escape(code_lang_fg, false) + "\n";
 
+        std::string fg_escape = color_escape(code_fg, true);
         std::string bg_escape = color_escape(code_block_bg, false);
 
         // Split code into lines and indent each line by 4 spaces
@@ -403,7 +463,7 @@ namespace widget {
           if (has_highlighting) {
             // Replace reset sequences to preserve background.  Replace \e[0m and \e[m with \e[39m
             // (reset foreground only) + background
-            std::string replacement = "\e[39m" + bg_escape;
+            std::string replacement = fg_escape + bg_escape;
             size_t pos_replace = 0;
             while ((pos_replace = line.find("\e[0m", pos_replace)) != std::string::npos) {
               line.replace(pos_replace, 4, replacement);
@@ -414,16 +474,17 @@ namespace widget {
               line.replace(pos_replace, 3, replacement);
               pos_replace += replacement.length();
             }
+            pos_replace = 0;
+            while ((pos_replace = line.find("\e[00;38;", pos_replace)) != std::string::npos) {
+              line.erase(pos_replace + 2, 3);
+              pos_replace += 5;
+            }
           }
 
           // Apply background color and 4-space indentation
-          code_block += "    " + bg_escape;
+          code_block += "    " + fg_escape + bg_escape;
 
-          // If no syntax highlighting (plain code), add foreground color
-          // if (! has_highlighting)
-          code_block += color_escape(code_fg, true);
-
-          code_block += line + "\e[K\e[0m\n";
+          code_block += line + "\n";
         }
 
         // Add as fixed paragraph
@@ -706,18 +767,21 @@ namespace widget {
       // Move back to first content line
       unsigned lines_to_move = all_lines.size();
       if (frame != frame_type::none)
-        lines_to_move++; // Skip bottom frame
+        ++lines_to_move; // Skip bottom frame
       move_cursor_up(lines_to_move);
+
+      unsigned column = left_margin;
+      if (frame != frame_type::none)
+        ++column; // Skip left border
+      std::string move_right = column > 0 ? std::format("\e[{}C", column) : "";
 
       // Fill in each line of content
       for (const auto& line : all_lines) {
-        // Position cursor after left margin and left border
-        unsigned column = left_margin;
-        if (frame != frame_type::none)
-          column++; // Skip left border
-        std::string move_right = column > 0 ? std::format("\e[{}C", column) : "";
+        // Replace \e[K sequences with spaces and cursor repositioning
+        std::string processed_line = replace_clear_eol(line, content_width);
 
-        writev_strs(fd, {"\r", move_right, text_color, bg_color, line, "\e[0m\n"});
+        // Position cursor after left margin and left border and then print the content.
+        writev_strs(fd, {"\r", move_right, text_color, bg_color, processed_line, "\e[0m\n"});
       }
 
       // Move cursor past bottom frame to line after widget
