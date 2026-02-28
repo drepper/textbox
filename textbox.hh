@@ -85,6 +85,8 @@ namespace widget {
       bool is_list_item = false; ///< True if this is a list item
       bool is_ordered = false; ///< True for ordered list, false for unordered
       unsigned list_level = 0; ///< Nesting level (0 = top level)
+      bool is_blockquote = false; ///< True if this is a blockquote
+      unsigned blockquote_level = 0; ///< Blockquote nesting level (0 = not a blockquote)
     };
 
     const terminal::info& term_info;

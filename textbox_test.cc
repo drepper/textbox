@@ -17,7 +17,7 @@ namespace {
       box.add_text("This is a simple text widget.");
       box.add_text(" It supports multiple paragraphs.\n\nThis is a second paragraph.");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -33,7 +33,7 @@ namespace {
       box.add_block({"def hello_world():", "    print('Hello, World!')", "    return 42"});
       box.add_text("\nThis function demonstrates block formatting.");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -48,7 +48,8 @@ namespace {
       widget::textbox box{*term, "Line Frame"};
       box.set_frame(widget::textbox::frame_type::line);
       box.add_text("This widget uses line drawing characters for the frame.");
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
 
     {
@@ -56,7 +57,8 @@ namespace {
       widget::textbox box{*term, "Background Frame"};
       box.set_frame(widget::textbox::frame_type::background);
       box.add_text("This widget uses block characters with background color.");
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
 
     {
@@ -64,7 +66,8 @@ namespace {
       widget::textbox box{*term, "No Frame"};
       box.set_frame(widget::textbox::frame_type::none);
       box.add_text("This widget has no frame at all.");
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -80,7 +83,8 @@ namespace {
       ::std::this_thread::sleep_for(::std::chrono::seconds(1));
 
       box.set_title("New Title!");
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -96,7 +100,7 @@ namespace {
       box.set_right_margin(5);
       box.add_text("This widget has 5-column margins on both sides.");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -114,7 +118,7 @@ namespace {
 
       box.add_text("This widget uses custom blue color scheme.");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(2));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(2));
     }
   }
 
@@ -132,7 +136,7 @@ namespace {
       box.add_text("\u65e5\u672c\u8a9e\n");
       box.add_text("Symbols: \u2190 \u2713 \u00d7");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(3));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(3));
     }
   }
 
@@ -155,7 +159,7 @@ namespace {
           "of multi-byte character sequences."
       );
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(3));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(3));
     }
   }
 
@@ -173,7 +177,7 @@ namespace {
       );
       box.add_text("Colors: \033[31mred\033[0m \033[32mgreen\033[0m \033[34mblue\033[0m");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(3));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(3));
     }
   }
 
@@ -199,7 +203,7 @@ namespace {
 
       box.add_text("\nWith Unicode: \u2713 \u2728 \U0001f680");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(4));
+      // ::std::this_thread::sleep_for(::std::chrono::seconds(4));
     }
   }
 
@@ -268,7 +272,14 @@ It will use the default code styling.
       box.add_markdown("1. enumerate item #2\n");
       box.add_markdown("1. enumerate item #3\n\n");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(5));
+      box.add_markdown("> This is a blockquote.\n");
+      box.add_markdown(R"*(> Want to write on a new line with space between?
+>
+> > And nested? No problem at all.\n)*");
+      box.add_markdown("> >\n");
+      box.add_markdown("> > > PS. you can **style** your text _as you want_.\n");
+
+      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
     }
   }
 
@@ -309,7 +320,40 @@ It will use the default code styling.
       box.add_markdown("   2. Another ordered subitem\n");
       box.add_markdown("3. Third ordered item\n\n");
 
-      ::std::this_thread::sleep_for(::std::chrono::seconds(6));
+      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
+    }
+  }
+
+  void test_blockquotes()
+  {
+    ::std::println("\n=== Test 13: Blockquotes ===");
+
+    auto term = terminal::info::alloc();
+    {
+      widget::textbox box{*term, "Blockquotes Demo"};
+
+      box.add_markdown("# Blockquotes\n\n");
+
+      box.add_markdown("## Simple Blockquote\n\n");
+      box.add_markdown("> This is a simple blockquote.\n");
+      box.add_markdown("> It can span multiple lines.\n");
+      box.add_markdown("> Each line starts with >.\n\n");
+
+      box.add_markdown("## Nested Blockquotes\n\n");
+      box.add_markdown("> Level 1 blockquote\n");
+      box.add_markdown("> > Level 2 blockquote (with spaces)\n");
+      box.add_markdown("> > > Level 3 blockquote (with spaces)\n");
+      box.add_markdown(">> Back to level 2 (without spaces)\n");
+      box.add_markdown("> Back to level 1\n\n");
+
+      box.add_markdown("## Blockquote with Long Text\n\n");
+      box.add_markdown(
+          "> This is a longer blockquote that demonstrates text wrapping within a "
+          "blockquote. The text should wrap properly while maintaining the quote "
+          "indentation and marker.\n\n"
+      );
+
+      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
     }
   }
 
@@ -332,6 +376,7 @@ int main()
     test_mixed_content();
     test_markdown();
     test_lists();
+    test_blockquotes();
 
     ::std::println("\n\nAll tests completed successfully!");
     return 0;

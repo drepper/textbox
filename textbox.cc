@@ -515,6 +515,57 @@ namespace widget {
         continue;
       }
 
+      // Check for blockquotes (only at line start)
+      if (at_line_start && raw_markdown[pos] == '>') {
+        // Count blockquote level, allowing optional space between > markers
+        size_t quote_pos = pos;
+        unsigned quote_level = 0;
+        while (quote_pos < raw_markdown.size()) {
+          if (raw_markdown[quote_pos] == '>') {
+            ++quote_level;
+            ++quote_pos;
+            // Skip optional space after >
+            if (quote_pos < raw_markdown.size() && raw_markdown[quote_pos] == ' ')
+              ++quote_pos;
+          } else {
+            break;
+          }
+        }
+
+        // Extract blockquote content until newline
+        size_t quote_end = raw_markdown.find('\n', quote_pos);
+        if (quote_end == std::string::npos)
+          quote_end = raw_markdown.size();
+
+        std::string quote_content = raw_markdown.substr(quote_pos, quote_end - quote_pos);
+
+        // Save any pending paragraph
+        if (!current_para.empty()) {
+          if (!paragraphs.back().content.empty())
+            paragraphs.emplace_back();
+          paragraphs.back().content = current_para;
+          current_para.clear();
+          paragraphs.emplace_back();
+        }
+
+        // Add as blockquote paragraph with metadata
+        if (!paragraphs.back().content.empty())
+          paragraphs.emplace_back();
+        paragraphs.back().content = quote_content;
+        paragraphs.back().is_reflow = true; // Blockquotes can reflow
+        paragraphs.back().is_blockquote = true;
+        paragraphs.back().blockquote_level = quote_level;
+
+        // Move past blockquote line
+        pos = quote_end;
+        if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
+          ++pos;
+          at_line_start = true;
+        }
+
+        continue;
+      }
+
       // Check for list items (only at line start)
       if (at_line_start) {
         // Count leading spaces
@@ -754,7 +805,27 @@ namespace widget {
       if (para.content.empty())
         continue;
 
-      if (para.is_reflow) {
+      if (para.is_blockquote) {
+        // Blockquote - wrap with indentation and quote markers
+        unsigned indent = para.blockquote_level * 4;
+        unsigned available_width = content_width > indent ? content_width - indent : 1;
+
+        auto lines = wrap_paragraph(para.content, available_width);
+        for (auto& line : lines) {
+          std::string prefixed_line;
+
+          // Build prefix with ▌ markers at start of each level
+          for (unsigned j = 0; j < para.blockquote_level; ++j) {
+            if (j == 0)
+              prefixed_line += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces
+            else
+              prefixed_line += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces for each level
+          }
+
+          prefixed_line += line;
+          all_lines.push_back(prefixed_line);
+        }
+      } else if (para.is_reflow) {
         auto lines = wrap_paragraph(para.content, content_width);
         all_lines.insert(all_lines.end(), lines.begin(), lines.end());
       } else if (para.is_list_item) {
@@ -816,9 +887,13 @@ namespace widget {
       if (i + 1 < paragraphs.size() && ! paragraphs[i + 1].content.empty()) {
         bool add_empty_line = true;
 
+        // Skip empty line for consecutive blockquotes at any level (same, deeper, or shallower)
+        if (para.is_blockquote && paragraphs[i + 1].is_blockquote) {
+          add_empty_line = false;
+        }
         // Skip empty line for consecutive list items of the same type at any level
-        if (para.is_list_item && paragraphs[i + 1].is_list_item &&
-            para.is_ordered == paragraphs[i + 1].is_ordered) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
+                 para.is_ordered == paragraphs[i + 1].is_ordered) {
           add_empty_line = false;
         }
         // Also skip if next item is deeper nested (regardless of type)
