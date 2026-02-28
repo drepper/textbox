@@ -116,6 +116,9 @@ private:
   std::vector<paragraph> paragraphs{};
   std::string raw_markdown{};
 
+  // Heading counters for hierarchical numbering
+  unsigned heading_counters[6] = {0, 0, 0, 0, 0, 0};
+
   // Track widget height for re-rendering
   unsigned widget_height = 0;
 

@@ -224,6 +224,10 @@ void textbox::parse_markdown() {
   paragraphs.clear();
   paragraphs.emplace_back(); // Start with empty paragraph
 
+  // Reset heading counters
+  for (unsigned &counter : heading_counters)
+    counter = 0;
+
   if (raw_markdown.empty())
     return;
 
@@ -261,6 +265,20 @@ void textbox::parse_markdown() {
         if (last != std::string::npos)
           heading_text = heading_text.substr(0, last + 1);
 
+        // Update heading counters - increment current level, reset lower levels
+        ++heading_counters[heading_level - 1];
+        for (size_t i = heading_level; i < 6; ++i)
+          heading_counters[i] = 0;
+
+        // Build hierarchical numbering prefix: ¶ 1.2.3  heading text
+        std::string numbering = "\N{PILCROW SIGN} ";
+        for (size_t i = 0; i < heading_level; ++i) {
+          if (i > 0)
+            numbering += '.';
+          numbering += std::to_string(heading_counters[i]);
+        }
+        numbering += "  ";
+
         // Save any pending paragraph
         if (!current_para.empty()) {
           paragraphs.back().content = current_para;
@@ -272,22 +290,28 @@ void textbox::parse_markdown() {
         std::string formatted_heading;
         switch (heading_level) {
         case 1:
-          formatted_heading = color_escape(h1_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h1_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         case 2:
-          formatted_heading = color_escape(h2_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h2_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         case 3:
-          formatted_heading = color_escape(h3_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h3_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         case 4:
-          formatted_heading = color_escape(h4_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h4_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         case 5:
-          formatted_heading = color_escape(h5_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h5_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         case 6:
-          formatted_heading = color_escape(h6_fg, true) + heading_text + "\e[0m";
+          formatted_heading = color_escape(h6_fg, true) + numbering +
+                              heading_text + "\e[0m";
           break;
         default:
           formatted_heading = heading_text;
