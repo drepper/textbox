@@ -67,7 +67,7 @@ if(NOT TARGET termdetect)
   add_subdirectory(termdetect)
 endif()
 
-add_library(textbox textbox.cc textbox.hh)
+add_library(textbox textbox.cc textbox.hh srchilite_map.cc srchilite_map.hh)
 target_include_directories(textbox PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(textbox PUBLIC termdetect unistring source-highlight)
 set_property(TARGET textbox PROPERTY POSITION_INDEPENDENT_CODE TRUE)

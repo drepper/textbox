@@ -1,4 +1,5 @@
 #include "textbox.hh"
+#include "srchilite_map.hh"
 
 #include <algorithm>
 #include <cassert>
@@ -367,7 +368,7 @@ namespace widget {
         // Use source-highlight library if language is specified
         std::string highlighted_code;
         bool has_highlighting = false;
-        if (! language.empty()) {
+        if (auto srchilite = find_source_highlight_data(language)) {
           try {
             // Create source-highlight instance
             srchilite::SourceHighlight highlighter{"esc.outlang"};
@@ -377,7 +378,8 @@ namespace widget {
             std::ostringstream output;
 
             // Highlight the code
-            highlighter.highlight(input, output, language);
+            language = srchilite->stdname;
+            highlighter.highlight(input, output, srchilite->fname);
             highlighted_code = output.str();
             has_highlighting = true;
           }
