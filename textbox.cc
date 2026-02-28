@@ -308,6 +308,14 @@ namespace widget {
     // Reset heading counters
     std::ranges::fill(heading_counters, 0);
 
+    // List state tracking
+    struct list_level {
+      bool is_ordered = false;
+      unsigned counter = 0;
+    };
+    std::vector<list_level> list_stack;
+    constexpr unsigned indent_size = 2; // Number of spaces per indent level
+
     size_t pos = 0;
     std::string current_para;
     bool at_line_start = true;
@@ -507,7 +515,101 @@ namespace widget {
         continue;
       }
 
-      // Non-heading, non-code-block character - no longer at line start
+      // Check for list items (only at line start)
+      if (at_line_start) {
+        // Count leading spaces
+        size_t indent_pos = pos;
+        unsigned leading_spaces = 0;
+        while (indent_pos < raw_markdown.size() && raw_markdown[indent_pos] == ' ') {
+          ++leading_spaces;
+          ++indent_pos;
+        }
+
+        unsigned current_level = leading_spaces / indent_size;
+        bool is_list_item = false;
+        bool is_ordered = false;
+        size_t content_start = indent_pos;
+
+        // Check for unordered list markers (-, *, +)
+        if (indent_pos + 1 < raw_markdown.size() &&
+            (raw_markdown[indent_pos] == '-' || raw_markdown[indent_pos] == '*' ||
+             raw_markdown[indent_pos] == '+') &&
+            raw_markdown[indent_pos + 1] == ' ') {
+          is_list_item = true;
+          is_ordered = false;
+          content_start = indent_pos + 2;
+        }
+        // Check for ordered list markers (digit(s) followed by .)
+        else if (indent_pos < raw_markdown.size() &&
+                 raw_markdown[indent_pos] >= '0' && raw_markdown[indent_pos] <= '9') {
+          size_t digit_end = indent_pos;
+          while (digit_end < raw_markdown.size() && raw_markdown[digit_end] >= '0' &&
+                 raw_markdown[digit_end] <= '9')
+            ++digit_end;
+
+          if (digit_end + 1 < raw_markdown.size() && raw_markdown[digit_end] == '.' &&
+              raw_markdown[digit_end + 1] == ' ') {
+            is_list_item = true;
+            is_ordered = true;
+            content_start = digit_end + 2;
+          }
+        }
+
+        if (is_list_item) {
+          // Extract list item content until newline
+          size_t item_end = raw_markdown.find('\n', content_start);
+          if (item_end == std::string::npos)
+            item_end = raw_markdown.size();
+
+          std::string item_content = raw_markdown.substr(content_start, item_end - content_start);
+
+          // Save any pending paragraph
+          if (!current_para.empty()) {
+            if (!paragraphs.back().content.empty())
+              paragraphs.emplace_back();
+            paragraphs.back().content = current_para;
+            current_para.clear();
+            paragraphs.emplace_back();
+          }
+
+          // Adjust list stack to current level
+          while (list_stack.size() > current_level)
+            list_stack.pop_back();
+
+          // Add new level if needed
+          if (list_stack.size() == current_level) {
+            list_stack.push_back(list_level{is_ordered, 0});
+          }
+
+          // Add as list item paragraph with metadata
+          if (!paragraphs.back().content.empty())
+            paragraphs.emplace_back();
+          paragraphs.back().content = item_content;
+          paragraphs.back().is_reflow = false;
+          paragraphs.back().is_list_item = true;
+          paragraphs.back().is_ordered = is_ordered;
+          paragraphs.back().list_level = current_level;
+
+          // Move past list item
+          pos = item_end;
+          if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
+            ++pos;
+            at_line_start = true;
+          }
+
+          continue;
+        }
+
+        // If we had a list but this isn't a list item, clear the list stack
+        if (!is_list_item && !list_stack.empty()) {
+          // Check if this is a blank line (which ends the list)
+          if (indent_pos < raw_markdown.size() && raw_markdown[indent_pos] == '\n') {
+            list_stack.clear();
+          }
+        }
+      }
+
+      // Non-heading, non-code-block, non-list character - no longer at line start
       at_line_start = false;
 
       // Process regular text with inline formatting
@@ -518,7 +620,8 @@ namespace widget {
         at_line_start = true;
         // Check for paragraph break (double newline)
         if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
-          // Paragraph break
+          // Paragraph break - ends list context
+          list_stack.clear();
           if (! current_para.empty()) {
             if (! paragraphs.back().content.empty())
               paragraphs.emplace_back();
@@ -642,6 +745,9 @@ namespace widget {
     // Calculate total content lines needed FIRST (before moving cursor)
     std::vector<std::string> all_lines;
 
+    // Track ordered list counters at each level for rendering
+    std::vector<unsigned> list_counters;
+
     for (size_t i = 0; i < paragraphs.size(); ++i) {
       const auto& para = paragraphs[i];
 
@@ -651,6 +757,48 @@ namespace widget {
       if (para.is_reflow) {
         auto lines = wrap_paragraph(para.content, content_width);
         all_lines.insert(all_lines.end(), lines.begin(), lines.end());
+      } else if (para.is_list_item) {
+        // List item - compute prefix during rendering
+
+        // Adjust counter array size to match list level
+        if (list_counters.size() <= para.list_level)
+          list_counters.resize(para.list_level + 1, 0);
+
+        // Increment counter for ordered lists at this level
+        if (para.is_ordered)
+          ++list_counters[para.list_level];
+        else
+          list_counters[para.list_level] = 0; // Reset for unordered items
+
+        // Reset deeper level counters
+        for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
+          list_counters[j] = 0;
+
+        // Build list item prefix
+        std::string prefix;
+        for (unsigned j = 0; j < para.list_level; ++j)
+          prefix += "  "; // Indent by 2 spaces per level
+
+        // Add bullet or number
+        if (para.is_ordered) {
+          prefix += std::format("{}. ", list_counters[para.list_level]);
+        } else {
+          // Use different bullets for different levels
+          static constexpr const char* bullets[] = {
+              "\N{BLACK CIRCLE}",           // ● level 0
+              "\N{WHITE CIRCLE}",           // ○ level 1
+              "-",                          // - level 2
+              "*",                          // * level 3
+              "\N{MIDDLE DOT}",             // · level 4
+              "\N{MIDDLE DOT}"              // · level 5+
+          };
+          unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
+          prefix += std::string(bullets[bullet_index]) + " ";
+        }
+
+        // Add prefixed content as a single line
+        std::string formatted_item = prefix + para.content;
+        all_lines.push_back(truncate_text(formatted_item, content_width));
       } else {
         // Fixed paragraph - split into lines
         std::string::size_type pos = 0;
@@ -665,8 +813,29 @@ namespace widget {
       }
 
       // Empty line between paragraphs
-      if (i + 1 < paragraphs.size() && ! paragraphs[i + 1].content.empty())
-        all_lines.push_back(std::string(content_width, ' '));
+      if (i + 1 < paragraphs.size() && ! paragraphs[i + 1].content.empty()) {
+        bool add_empty_line = true;
+
+        // Skip empty line for consecutive list items of the same type at any level
+        if (para.is_list_item && paragraphs[i + 1].is_list_item &&
+            para.is_ordered == paragraphs[i + 1].is_ordered) {
+          add_empty_line = false;
+        }
+        // Also skip if next item is deeper nested (regardless of type)
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
+                 paragraphs[i + 1].list_level > para.list_level) {
+          add_empty_line = false;
+        }
+        // Add empty line if list types differ at the same level
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
+                 para.list_level == paragraphs[i + 1].list_level &&
+                 para.is_ordered != paragraphs[i + 1].is_ordered) {
+          add_empty_line = true;
+        }
+
+        if (add_empty_line)
+          all_lines.push_back(std::string(content_width, ' '));
+      }
     }
 
     // Calculate total widget height

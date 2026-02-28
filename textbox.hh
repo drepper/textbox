@@ -82,6 +82,9 @@ namespace widget {
     struct paragraph {
       std::string content{};
       bool is_reflow = true; ///< True for reflowable, false for fixed
+      bool is_list_item = false; ///< True if this is a list item
+      bool is_ordered = false; ///< True for ordered list, false for unordered
+      unsigned list_level = 0; ///< Nesting level (0 = top level)
     };
 
     const terminal::info& term_info;

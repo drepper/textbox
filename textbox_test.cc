@@ -259,7 +259,57 @@ It will use the default code styling.
 ```
 )");
 
+      box.add_markdown("- itemize item #1\n");
+      box.add_markdown("- itemize item #2\n");
+      box.add_markdown("  - itemize item #2.1\n");
+      box.add_markdown("- itemize item #3\n\n");
+
+      box.add_markdown("1. enumerate item #1\n");
+      box.add_markdown("1. enumerate item #2\n");
+      box.add_markdown("1. enumerate item #3\n\n");
+
       ::std::this_thread::sleep_for(::std::chrono::seconds(5));
+    }
+  }
+
+  void test_lists()
+  {
+    ::std::println("\n=== Test 12: Lists (Itemized and Enumerated) ===");
+
+    auto term = terminal::info::alloc();
+    {
+      widget::textbox box{*term, "Lists Demo"};
+
+      box.add_markdown("# Lists\n\n");
+
+      box.add_markdown("## Unordered List\n\n");
+      box.add_markdown("- First item\n");
+      box.add_markdown("- Second item\n");
+      box.add_markdown("- Third item\n\n");
+
+      box.add_markdown("## Ordered List\n\n");
+      box.add_markdown("1. First item\n");
+      box.add_markdown("2. Second item\n");
+      box.add_markdown("3. Third item\n\n");
+
+      box.add_markdown("## Nested Lists\n\n");
+      box.add_markdown("- Level 1 item 1\n");
+      box.add_markdown("  - Level 2 item 1\n");
+      box.add_markdown("    - Level 3 item 1\n");
+      box.add_markdown("    - Level 3 item 2\n");
+      box.add_markdown("  - Level 2 item 2\n");
+      box.add_markdown("- Level 1 item 2\n\n");
+
+      box.add_markdown("## Mixed Nested Lists\n\n");
+      box.add_markdown("1. First ordered item\n");
+      box.add_markdown("   - Unordered subitem\n");
+      box.add_markdown("   - Another unordered subitem\n");
+      box.add_markdown("2. Second ordered item\n");
+      box.add_markdown("   1. Ordered subitem\n");
+      box.add_markdown("   2. Another ordered subitem\n");
+      box.add_markdown("3. Third ordered item\n\n");
+
+      ::std::this_thread::sleep_for(::std::chrono::seconds(6));
     }
   }
 
@@ -281,6 +331,7 @@ int main()
     test_escape_sequences();
     test_mixed_content();
     test_markdown();
+    test_lists();
 
     ::std::println("\n\nAll tests completed successfully!");
     return 0;
