@@ -896,12 +896,12 @@ namespace widget {
                  para.is_ordered == paragraphs[i + 1].is_ordered) {
           add_empty_line = false;
         }
-        // Also skip if next item is deeper nested (regardless of type)
+        // Skip if next item is at a different nesting level (deeper or shallower)
         else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
-                 paragraphs[i + 1].list_level > para.list_level) {
+                 paragraphs[i + 1].list_level != para.list_level) {
           add_empty_line = false;
         }
-        // Add empty line if list types differ at the same level
+        // Add empty line only if list types differ at the same level
         else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
                  para.list_level == paragraphs[i + 1].list_level &&
                  para.is_ordered != paragraphs[i + 1].is_ordered) {
