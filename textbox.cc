@@ -913,12 +913,12 @@ namespace widget {
 
       if (para.is_blockquote) {
         // Blockquote - wrap with indentation and quote markers
-        unsigned indent = para.blockquote_level * 4;
+        unsigned indent = para.blockquote_level * 2;
         std::string blockquote_prefix;
 
         // Build blockquote prefix with ▌ markers at start of each level
         for (unsigned j = 0; j < para.blockquote_level; ++j)
-          blockquote_prefix += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces
+          blockquote_prefix += "\N{LEFT HALF BLOCK} "; // ▌ + 1 space
 
         // Check if this blockquote is also a list item
         if (para.is_list_item) {
