@@ -1,3 +1,4 @@
+#include <cstddef>
 #ifndef _TEXTBOX_HH
 #define _TEXTBOX_HH 1
 
@@ -106,18 +107,19 @@ private:
   terminal::info::color code_lang_bg{16, 16, 16};
 
   // Heading colors (decreasing brightness)
-  terminal::info::color h1_fg{255, 255, 255};
-  terminal::info::color h2_fg{230, 230, 230};
-  terminal::info::color h3_fg{200, 200, 200};
-  terminal::info::color h4_fg{170, 170, 170};
-  terminal::info::color h5_fg{140, 140, 140};
-  terminal::info::color h6_fg{110, 110, 110};
+  static constexpr size_t max_heading_level = 6;
+  std::array<terminal::info::color, max_heading_level> hx_fg{{{255, 255, 255},
+                                                              {230, 230, 230},
+                                                              {200, 200, 200},
+                                                              {170, 170, 170},
+                                                              {140, 140, 140},
+                                                              {110, 110, 110}}};
 
   std::vector<paragraph> paragraphs{};
   std::string raw_markdown{};
 
   // Heading counters for hierarchical numbering
-  unsigned heading_counters[6] = {0, 0, 0, 0, 0, 0};
+  std::array<unsigned, max_heading_level> heading_counters = {0, 0, 0, 0, 0, 0};
 
   // Track widget height for re-rendering
   unsigned widget_height = 0;

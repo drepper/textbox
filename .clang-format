@@ -35,4 +35,4 @@ IncludeBlocks: Preserve
 SpaceAfterLogicalNot: True
 SpaceAfterCStyleCast: True
 AlignAfterOpenBracket: BlockIndent
-PackConstructorInitializersStyle: NextLineOnly
+PackConstructorInitializers: NextLineOnly
