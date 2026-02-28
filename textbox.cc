@@ -650,7 +650,7 @@ namespace widget {
         if (! paragraphs.back().content.empty())
           paragraphs.emplace_back();
         paragraphs.back().content = formatted_content;
-        paragraphs.back().is_reflow = ! is_list; // Lists don't reflow
+        paragraphs.back().is_reflow = true; // Allow wrapping for all blockquote content
         paragraphs.back().is_blockquote = true;
         paragraphs.back().blockquote_level = quote_level;
         paragraphs.back().is_list_item = is_list;
@@ -731,7 +731,7 @@ namespace widget {
           if (! paragraphs.back().content.empty())
             paragraphs.emplace_back();
           paragraphs.back().content = item_content;
-          paragraphs.back().is_reflow = false;
+          paragraphs.back().is_reflow = true; // Allow wrapping
           paragraphs.back().is_list_item = true;
           paragraphs.back().is_ordered = is_ordered;
           paragraphs.back().list_level = current_level;
@@ -936,21 +936,39 @@ namespace widget {
           for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
             list_counters[j] = 0;
 
-          // Build list item prefix (after blockquote prefix).   Indent by 2 spaces per level.
-          std::string list_prefix(para.list_level * 2, ' ');
+          // Build list item prefix (indentation + bullet/number)
+          std::string indent_str(para.list_level * 2, ' ');
+          std::string bullet_str;
 
           // Add bullet or number
           if (para.is_ordered)
-            list_prefix += std::format("{}. ", list_counters[para.list_level]);
+            bullet_str = std::format("{}. ", list_counters[para.list_level]);
           else {
             static constexpr const char* bullets[] = {"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-", "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
             unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
-            list_prefix += std::string(bullets[bullet_index]) + " ";
+            bullet_str = std::string(bullets[bullet_index]) + " ";
           }
 
-          // Combine blockquote and list prefixes with content
-          std::string full_line = blockquote_prefix + list_prefix + para.content;
-          all_lines.push_back(truncate_text(std::move(full_line), content_width));
+          std::string list_prefix = indent_str + bullet_str;
+          std::string full_prefix = blockquote_prefix + list_prefix;
+          unsigned prefix_width = calculate_display_width(full_prefix);
+
+          // Calculate available width for content
+          unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
+
+          // Wrap content
+          auto wrapped_lines = wrap_paragraph(para.content, available_width);
+
+          // Add first line with full prefix
+          if (!wrapped_lines.empty()) {
+            all_lines.push_back(full_prefix + wrapped_lines[0]);
+
+            // Add continuation lines with hanging indent
+            std::string continuation_indent(prefix_width, ' ');
+            for (size_t i = 1; i < wrapped_lines.size(); ++i) {
+              all_lines.push_back(continuation_indent + wrapped_lines[i]);
+            }
+          }
         } else {
           // Regular blockquote (not a list)
           unsigned available_width = content_width > indent ? content_width - indent : 1;
@@ -960,9 +978,6 @@ namespace widget {
             all_lines.push_back(prefixed_line);
           }
         }
-      } else if (para.is_reflow) {
-        auto lines = wrap_paragraph(para.content, content_width);
-        all_lines.insert(all_lines.end(), lines.begin(), lines.end());
       } else if (para.is_list_item) {
         // List item - compute prefix during rendering
 
@@ -980,31 +995,49 @@ namespace widget {
         for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
           list_counters[j] = 0;
 
-        // Build list item prefix
-        std::string prefix;
-        for (unsigned j = 0; j < para.list_level; ++j)
-          prefix += "  "; // Indent by 2 spaces per level
+        // Build list item prefix (indentation + bullet/number)
+        std::string indent_prefix(para.list_level * 2, ' ');
+        std::string bullet_prefix;
 
         // Add bullet or number
-        if (para.is_ordered) {
-          prefix += std::format("{}. ", list_counters[para.list_level]);
-        } else {
+        if (para.is_ordered)
+          bullet_prefix = std::format("{}. ", list_counters[para.list_level]);
+        else {
           // Use different bullets for different levels
-          static constexpr const char* bullets[] = {
+          static constexpr const std::array bullets{
             "\N{BLACK CIRCLE}", // ● level 0
             "\N{WHITE CIRCLE}", // ○ level 1
             "-",                // - level 2
             "*",                // * level 3
-            "\N{MIDDLE DOT}",   // · level 4
-            "\N{MIDDLE DOT}"    // · level 5+
+            "\N{MIDDLE DOT}",   // · level 4+
           };
-          unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
-          prefix += std::string(bullets[bullet_index]) + " ";
+          auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
+          bullet_prefix = std::string(bullets[bullet_index]) + " ";
         }
 
-        // Add prefixed content as a single line
-        std::string formatted_item = prefix + para.content;
-        all_lines.push_back(truncate_text(std::move(formatted_item), content_width));
+        std::string full_prefix = indent_prefix + bullet_prefix;
+        unsigned prefix_width = calculate_display_width(full_prefix);
+
+        // Calculate available width for content
+        unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
+
+        // Wrap content
+        auto wrapped_lines = wrap_paragraph(para.content, available_width);
+
+        // Add first line with prefix
+        if (!wrapped_lines.empty()) {
+          all_lines.push_back(full_prefix + wrapped_lines[0]);
+
+          // Add continuation lines with hanging indent
+          std::string continuation_indent(prefix_width, ' ');
+          for (size_t i = 1; i < wrapped_lines.size(); ++i) {
+            all_lines.push_back(continuation_indent + wrapped_lines[i]);
+          }
+        }
+      } else if (para.is_reflow) {
+        // Regular reflowable paragraph
+        auto lines = wrap_paragraph(para.content, content_width);
+        all_lines.insert(all_lines.end(), lines.begin(), lines.end());
       } else {
         // Fixed paragraph - split into lines
         std::string::size_type pos = 0;
@@ -1061,80 +1094,74 @@ namespace widget {
     std::string bg_color = (frame == frame_type::background) ? color_escape(text_bg, false) : "";
     std::string content_spaces(content_width, ' ');
 
-    if (frame == frame_type::line) {
-      // Draw top frame
-      if (! title.empty()) {
-        auto metrics = measure_text(title, content_width);
-        unsigned remaining = content_width - metrics.display_width;
-        std::string horiz_line(remaining * 3, '\0');
-        for (unsigned i = 0; i < remaining; ++i) {
-          horiz_line[i * 3] = '\xe2';
-          horiz_line[i * 3 + 1] = '\x94';
-          horiz_line[i * 3 + 2] = '\x80';
-        }
-        writev_strs(
-            fd, {left_margin_spaces, frame_color, "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}", color_escape(title_fg, true), color_escape(text_bg, false), title.substr(0, metrics.byte_length), "\e[0m", frame_color, horiz_line, "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m", clear_eol, "\n"}
-        );
-      } else {
-        std::string horiz_line(content_width * 3, '\0');
-        for (unsigned i = 0; i < content_width; ++i) {
-          horiz_line[i * 3] = '\xe2';
-          horiz_line[i * 3 + 1] = '\x94';
-          horiz_line[i * 3 + 2] = '\x80';
-        }
-        writev_strs(fd, {left_margin_spaces, frame_color, "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}", horiz_line, "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m", clear_eol, "\n"});
-      }
-
-      // Draw content area with just borders
-      for (size_t i = 0; i < all_lines.size(); ++i)
-        writev_strs(fd, {left_margin_spaces, frame_color, "\N{BOX DRAWINGS LIGHT VERTICAL}", content_spaces, "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m", clear_eol, "\n"});
-
-      // Draw bottom frame
-      std::string horiz_line(content_width * 3, '\0');
-      for (unsigned i = 0; i < content_width; ++i) {
-        horiz_line[i * 3] = '\xe2';
-        horiz_line[i * 3 + 1] = '\x94';
-        horiz_line[i * 3 + 2] = '\x80';
-      }
-      writev_strs(fd, {left_margin_spaces, frame_color, "\N{BOX DRAWINGS LIGHT ARC UP AND RIGHT}", horiz_line, "\N{BOX DRAWINGS LIGHT ARC UP AND LEFT}\e[0m", clear_eol, "\n"});
-    } else if (frame == frame_type::background) {
-      // Draw top frame
-      if (! title.empty()) {
-        auto metrics = measure_text(title, content_width);
-        unsigned remaining = content_width - metrics.display_width;
-        std::string lower_half(remaining * 3, '\0');
-        for (unsigned i = 0; i < remaining; ++i) {
-          lower_half[i * 3] = '\xe2';
-          lower_half[i * 3 + 1] = '\x96';
-          lower_half[i * 3 + 2] = '\x84';
-        }
-        writev_strs(fd, {left_margin_spaces, frame_color, "\N{QUADRANT LOWER RIGHT}", color_escape(title_fg, true), color_escape(text_bg, false), title.substr(0, metrics.byte_length), "\e[0m", frame_color, lower_half, "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
-      } else {
-        std::string lower_half(content_width * 3, '\0');
-        for (unsigned i = 0; i < content_width; ++i) {
-          lower_half[i * 3] = '\xe2';
-          lower_half[i * 3 + 1] = '\x96';
-          lower_half[i * 3 + 2] = '\x84';
-        }
-        writev_strs(fd, {left_margin_spaces, frame_color, "\N{QUADRANT LOWER RIGHT}", lower_half, "\N{QUADRANT LOWER LEFT}\e[0m", clear_eol, "\n"});
-      }
-
-      // Draw content area with just borders
-      for (size_t i = 0; i < all_lines.size(); ++i)
-        writev_strs(fd, {left_margin_spaces, frame_color, "\N{RIGHT HALF BLOCK}", bg_color, content_spaces, "\e[0m", frame_color, "\N{LEFT HALF BLOCK}\e[0m", clear_eol, "\n"});
-
-      // Draw bottom frame
-      std::string upper_half(content_width * 3, '\0');
-      for (unsigned i = 0; i < content_width; ++i) {
-        upper_half[i * 3] = '\xe2';
-        upper_half[i * 3 + 1] = '\x96';
-        upper_half[i * 3 + 2] = '\x80';
-      }
-      writev_strs(fd, {left_margin_spaces, frame_color, "\N{QUADRANT UPPER RIGHT}", upper_half, "\N{QUADRANT UPPER LEFT}\e[0m", clear_eol, "\n"});
-    } else {
+    if (frame == frame_type::none) [[unlikely]] {
       // No frame - just draw empty lines with background
+      std::string tmpstr;
+      tmpstr.reserve(4 * content_width);
+      tmpstr = left_margin_spaces;
+      tmpstr.append(bg_color);
+      tmpstr.append(content_spaces);
+      tmpstr.append("\e[0m");
+      tmpstr.append(clear_eol);
+      tmpstr.append("\n");
       for (size_t i = 0; i < all_lines.size(); ++i)
-        writev_strs(fd, {left_margin_spaces, bg_color, content_spaces, "\e[0m", clear_eol, "\n"});
+        write_str(fd, tmpstr);
+    } else {
+      bool is_line = frame == frame_type::line;
+
+      // Draw top frame
+      std::string tmpstr;
+      tmpstr.reserve(4 * content_width);
+      tmpstr = left_margin_spaces;
+      tmpstr.append(frame_color);
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}" : "\N{QUADRANT LOWER RIGHT}");
+      auto remaining = content_width;
+      if (! title.empty()) {
+        auto metrics = measure_text(title, content_width);
+        remaining -= metrics.display_width;
+        tmpstr.append(color_escape(title_fg, true));
+        tmpstr.append(color_escape(text_bg, false));
+        tmpstr.append(title.substr(0, metrics.byte_length));
+        tmpstr.append("\e[0m");
+      }
+      tmpstr.append(frame_color);
+      for (unsigned i = 0; i < remaining; ++i) {
+        static const char light_horiz[] = "\N{BOX DRAWINGS LIGHT HORIZONTAL}";
+        static const char lower_half[] = "\N{LOWER HALF BLOCK}";
+        tmpstr.append(is_line ? light_horiz : lower_half);
+      }
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m" : "\N{QUADRANT LOWER LEFT}\e[0m");
+      tmpstr.append(clear_eol);
+      tmpstr.append("\n");
+      write_str(fd, tmpstr);
+
+      // Draw content area with just borders
+      tmpstr = left_margin_spaces;
+      tmpstr.append(frame_color);
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT VERTICAL}" : "\N{RIGHT HALF BLOCK}");
+      tmpstr.append(bg_color);
+      tmpstr.append(content_spaces);
+      tmpstr.append("\e[0m");
+      tmpstr.append(frame_color);
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m" : "\N{LEFT HALF BLOCK}\e[0m");
+      tmpstr.append(clear_eol);
+      tmpstr.append("\n");
+      for (size_t i = 0; i < all_lines.size(); ++i)
+        write_str(fd, tmpstr);
+
+      // Draw bottom frame
+      tmpstr = left_margin_spaces;
+      tmpstr.append(frame_color);
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC UP AND RIGHT}" : "\N{QUADRANT UPPER RIGHT}");
+      for (unsigned i = 0; i < content_width; ++i) {
+        static const char light_horiz[] = "\N{BOX DRAWINGS LIGHT HORIZONTAL}";
+        static const char upper_half[] = "\N{UPPER HALF BLOCK}";
+        tmpstr.append(is_line ? light_horiz : upper_half);
+      }
+      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC UP AND LEFT}\e[0m" : "\N{QUADRANT UPPER LEFT}\e[0m");
+      tmpstr.append(clear_eol);
+      tmpstr.append("\n");
+      write_str(fd, tmpstr);
     }
 
     // Step 2: Move cursor back to fill in content

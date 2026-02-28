@@ -320,6 +320,17 @@ It will use the default code styling.
       box.add_markdown("   2. Another ordered subitem\n");
       box.add_markdown("3. Third ordered item\n\n");
 
+      box.add_markdown("## Long Text in Lists\n\n");
+      box.add_markdown(
+          "- This is a very long list item that should wrap across multiple lines "
+          "when it exceeds the width of the terminal. The continuation lines should "
+          "be properly indented to align with the start of the text.\n"
+      );
+      box.add_markdown(
+          "- Another long item demonstrating proper text wrapping and indentation "
+          "for readability in itemized lists.\n\n"
+      );
+
       ::std::this_thread::sleep_for(::std::chrono::seconds(1));
     }
   }
@@ -360,7 +371,11 @@ It will use the default code styling.
       box.add_markdown("## Blockquote with Lists\n\n");
       box.add_markdown("> Here's a list in a blockquote:\n");
       box.add_markdown("> - First item\n");
-      box.add_markdown("> - Second item\n");
+      box.add_markdown(
+          "> - This is a long second item that should wrap properly within the "
+          "blockquote with correct indentation for continuation lines.  Add a few more words to make sure "
+          "there is enough text to fill a line.\n"
+      );
       box.add_markdown(">   - Nested item\n");
       box.add_markdown("> - Third item\n\n");
 
