@@ -537,7 +537,103 @@ namespace widget {
         if (quote_end == std::string::npos)
           quote_end = raw_markdown.size();
 
-        std::string quote_content = raw_markdown.substr(quote_pos, quote_end - quote_pos);
+        std::string quote_content_raw = raw_markdown.substr(quote_pos, quote_end - quote_pos);
+
+        // Check if blockquote content is a list item
+        size_t content_pos = 0;
+        unsigned list_level = 0;
+        bool is_list = false;
+        bool is_ordered = false;
+
+        // Count leading spaces for list nesting
+        while (content_pos < quote_content_raw.size() && quote_content_raw[content_pos] == ' ') {
+          ++content_pos;
+        }
+        list_level = content_pos / indent_size;
+
+        // Check for list markers
+        if (content_pos + 1 < quote_content_raw.size() &&
+            (quote_content_raw[content_pos] == '-' || quote_content_raw[content_pos] == '*' ||
+             quote_content_raw[content_pos] == '+') &&
+            quote_content_raw[content_pos + 1] == ' ') {
+          is_list = true;
+          is_ordered = false;
+          content_pos += 2;
+        } else if (content_pos < quote_content_raw.size() &&
+                   quote_content_raw[content_pos] >= '0' && quote_content_raw[content_pos] <= '9') {
+          size_t digit_end = content_pos;
+          while (digit_end < quote_content_raw.size() && quote_content_raw[digit_end] >= '0' &&
+                 quote_content_raw[digit_end] <= '9')
+            ++digit_end;
+
+          if (digit_end + 1 < quote_content_raw.size() && quote_content_raw[digit_end] == '.' &&
+              quote_content_raw[digit_end + 1] == ' ') {
+            is_list = true;
+            is_ordered = true;
+            content_pos = digit_end + 2;
+          }
+        }
+
+        // Extract actual content (after list marker if present)
+        std::string quote_content = quote_content_raw.substr(content_pos);
+
+        // Process inline formatting
+        std::string formatted_content;
+        size_t fmt_pos = 0;
+        while (fmt_pos < quote_content.size()) {
+          char ch = quote_content[fmt_pos];
+
+          // Check for inline code `...`
+          if (ch == '`') {
+            size_t end = quote_content.find('`', fmt_pos + 1);
+            if (end != std::string::npos) {
+              std::string code_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
+              formatted_content += color_escape(code_fg, true) + color_escape(code_bg, false) +
+                                   code_text + "\e[0m";
+              fmt_pos = end + 1;
+              continue;
+            }
+          }
+
+          // Check for bold **...**
+          if (fmt_pos + 1 < quote_content.size() && ch == '*' && quote_content[fmt_pos + 1] == '*') {
+            size_t end = quote_content.find("**", fmt_pos + 2);
+            if (end != std::string::npos) {
+              std::string bold_text = quote_content.substr(fmt_pos + 2, end - fmt_pos - 2);
+              formatted_content += "\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[22m\e[0m";
+              fmt_pos = end + 2;
+              continue;
+            }
+          }
+
+          // Check for italic *...*
+          if (ch == '*') {
+            size_t end = quote_content.find('*', fmt_pos + 1);
+            if (end != std::string::npos) {
+              std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
+              formatted_content +=
+                  "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+              fmt_pos = end + 1;
+              continue;
+            }
+          }
+
+          // Check for strikethrough ~~...~~
+          if (fmt_pos + 1 < quote_content.size() && ch == '~' && quote_content[fmt_pos + 1] == '~') {
+            size_t end = quote_content.find("~~", fmt_pos + 2);
+            if (end != std::string::npos) {
+              std::string strike_text = quote_content.substr(fmt_pos + 2, end - fmt_pos - 2);
+              formatted_content +=
+                  "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
+              fmt_pos = end + 2;
+              continue;
+            }
+          }
+
+          // Regular character
+          formatted_content += ch;
+          ++fmt_pos;
+        }
 
         // Save any pending paragraph
         if (!current_para.empty()) {
@@ -551,10 +647,13 @@ namespace widget {
         // Add as blockquote paragraph with metadata
         if (!paragraphs.back().content.empty())
           paragraphs.emplace_back();
-        paragraphs.back().content = quote_content;
-        paragraphs.back().is_reflow = true; // Blockquotes can reflow
+        paragraphs.back().content = formatted_content;
+        paragraphs.back().is_reflow = !is_list; // Lists don't reflow
         paragraphs.back().is_blockquote = true;
         paragraphs.back().blockquote_level = quote_level;
+        paragraphs.back().is_list_item = is_list;
+        paragraphs.back().is_ordered = is_ordered;
+        paragraphs.back().list_level = list_level;
 
         // Move past blockquote line
         pos = quote_end;
@@ -808,22 +907,56 @@ namespace widget {
       if (para.is_blockquote) {
         // Blockquote - wrap with indentation and quote markers
         unsigned indent = para.blockquote_level * 4;
-        unsigned available_width = content_width > indent ? content_width - indent : 1;
+        std::string blockquote_prefix;
 
-        auto lines = wrap_paragraph(para.content, available_width);
-        for (auto& line : lines) {
-          std::string prefixed_line;
+        // Build blockquote prefix with ▌ markers at start of each level
+        for (unsigned j = 0; j < para.blockquote_level; ++j) {
+          blockquote_prefix += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces
+        }
 
-          // Build prefix with ▌ markers at start of each level
-          for (unsigned j = 0; j < para.blockquote_level; ++j) {
-            if (j == 0)
-              prefixed_line += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces
-            else
-              prefixed_line += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces for each level
+        // Check if this blockquote is also a list item
+        if (para.is_list_item) {
+          // Adjust counter array size to match list level
+          if (list_counters.size() <= para.list_level)
+            list_counters.resize(para.list_level + 1, 0);
+
+          // Increment counter for ordered lists at this level
+          if (para.is_ordered)
+            ++list_counters[para.list_level];
+          else
+            list_counters[para.list_level] = 0;
+
+          // Reset deeper level counters
+          for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
+            list_counters[j] = 0;
+
+          // Build list item prefix (after blockquote prefix)
+          std::string list_prefix;
+          for (unsigned j = 0; j < para.list_level; ++j)
+            list_prefix += "  "; // Indent by 2 spaces per level
+
+          // Add bullet or number
+          if (para.is_ordered) {
+            list_prefix += std::format("{}. ", list_counters[para.list_level]);
+          } else {
+            static constexpr const char* bullets[] = {"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-",
+                                                       "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
+            unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
+            list_prefix += std::string(bullets[bullet_index]) + " ";
           }
 
-          prefixed_line += line;
-          all_lines.push_back(prefixed_line);
+          // Combine blockquote and list prefixes with content
+          std::string full_line = blockquote_prefix + list_prefix + para.content;
+          unsigned available_width = content_width > indent ? content_width - indent : 1;
+          all_lines.push_back(truncate_text(full_line, content_width));
+        } else {
+          // Regular blockquote (not a list)
+          unsigned available_width = content_width > indent ? content_width - indent : 1;
+          auto lines = wrap_paragraph(para.content, available_width);
+          for (auto& line : lines) {
+            std::string prefixed_line = blockquote_prefix + line;
+            all_lines.push_back(prefixed_line);
+          }
         }
       } else if (para.is_reflow) {
         auto lines = wrap_paragraph(para.content, content_width);

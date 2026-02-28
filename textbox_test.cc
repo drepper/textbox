@@ -353,6 +353,24 @@ It will use the default code styling.
           "indentation and marker.\n\n"
       );
 
+      box.add_markdown("## Blockquote with Formatting\n\n");
+      box.add_markdown("> This has **bold** and *italic* text.\n");
+      box.add_markdown("> Also `inline code` and ~~strikethrough~~.\n\n");
+
+      box.add_markdown("## Blockquote with Lists\n\n");
+      box.add_markdown("> Here's a list in a blockquote:\n");
+      box.add_markdown("> - First item\n");
+      box.add_markdown("> - Second item\n");
+      box.add_markdown(">   - Nested item\n");
+      box.add_markdown("> - Third item\n\n");
+
+      box.add_markdown("## Nested Blockquote with List\n\n");
+      box.add_markdown("> Level 1\n");
+      box.add_markdown("> > Level 2 with list:\n");
+      box.add_markdown("> > 1. First\n");
+      box.add_markdown("> > 2. Second\n");
+      box.add_markdown("> Back to level 1\n\n");
+
       ::std::this_thread::sleep_for(::std::chrono::seconds(1));
     }
   }
