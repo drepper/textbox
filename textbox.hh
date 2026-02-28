@@ -81,11 +81,11 @@ namespace widget {
     /// Paragraph data structure
     struct paragraph {
       std::string content{};
-      bool is_reflow = true; ///< True for reflowable, false for fixed
-      bool is_list_item = false; ///< True if this is a list item
-      bool is_ordered = false; ///< True for ordered list, false for unordered
-      unsigned list_level = 0; ///< Nesting level (0 = top level)
-      bool is_blockquote = false; ///< True if this is a blockquote
+      bool is_reflow = true;         ///< True for reflowable, false for fixed
+      bool is_list_item = false;     ///< True if this is a list item
+      bool is_ordered = false;       ///< True for ordered list, false for unordered
+      unsigned list_level = 0;       ///< Nesting level (0 = top level)
+      bool is_blockquote = false;    ///< True if this is a blockquote
       unsigned blockquote_level = 0; ///< Blockquote nesting level (0 = not a blockquote)
     };
 
@@ -149,7 +149,7 @@ namespace widget {
     /// @param text Text to truncate
     /// @param width Maximum width in columns
     /// @return Truncated text
-    std::string truncate_text(const std::string& text, unsigned width) const;
+    std::string truncate_text(std::string&& text, unsigned width) const;
 
     /// Get terminal dimensions
     /// @return Tuple of (width, height) in rows and columns

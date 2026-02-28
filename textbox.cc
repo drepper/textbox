@@ -552,22 +552,16 @@ namespace widget {
         list_level = content_pos / indent_size;
 
         // Check for list markers
-        if (content_pos + 1 < quote_content_raw.size() &&
-            (quote_content_raw[content_pos] == '-' || quote_content_raw[content_pos] == '*' ||
-             quote_content_raw[content_pos] == '+') &&
-            quote_content_raw[content_pos + 1] == ' ') {
+        if (content_pos + 1 < quote_content_raw.size() && (quote_content_raw[content_pos] == '-' || quote_content_raw[content_pos] == '*' || quote_content_raw[content_pos] == '+') && quote_content_raw[content_pos + 1] == ' ') {
           is_list = true;
           is_ordered = false;
           content_pos += 2;
-        } else if (content_pos < quote_content_raw.size() &&
-                   quote_content_raw[content_pos] >= '0' && quote_content_raw[content_pos] <= '9') {
+        } else if (content_pos < quote_content_raw.size() && quote_content_raw[content_pos] >= '0' && quote_content_raw[content_pos] <= '9') {
           size_t digit_end = content_pos;
-          while (digit_end < quote_content_raw.size() && quote_content_raw[digit_end] >= '0' &&
-                 quote_content_raw[digit_end] <= '9')
+          while (digit_end < quote_content_raw.size() && quote_content_raw[digit_end] >= '0' && quote_content_raw[digit_end] <= '9')
             ++digit_end;
 
-          if (digit_end + 1 < quote_content_raw.size() && quote_content_raw[digit_end] == '.' &&
-              quote_content_raw[digit_end + 1] == ' ') {
+          if (digit_end + 1 < quote_content_raw.size() && quote_content_raw[digit_end] == '.' && quote_content_raw[digit_end + 1] == ' ') {
             is_list = true;
             is_ordered = true;
             content_pos = digit_end + 2;
@@ -588,8 +582,7 @@ namespace widget {
             size_t end = quote_content.find('`', fmt_pos + 1);
             if (end != std::string::npos) {
               std::string code_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content += color_escape(code_fg, true) + color_escape(code_bg, false) +
-                                   code_text + "\e[0m";
+              formatted_content += color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m";
               fmt_pos = end + 1;
               continue;
             }
@@ -611,8 +604,7 @@ namespace widget {
             size_t end = quote_content.find('*', fmt_pos + 1);
             if (end != std::string::npos) {
               std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content +=
-                  "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+              formatted_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
               fmt_pos = end + 1;
               continue;
             }
@@ -623,8 +615,7 @@ namespace widget {
             size_t end = quote_content.find('_', fmt_pos + 1);
             if (end != std::string::npos) {
               std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content +=
-                  "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+              formatted_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
               fmt_pos = end + 1;
               continue;
             }
@@ -635,8 +626,7 @@ namespace widget {
             size_t end = quote_content.find("~~", fmt_pos + 2);
             if (end != std::string::npos) {
               std::string strike_text = quote_content.substr(fmt_pos + 2, end - fmt_pos - 2);
-              formatted_content +=
-                  "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
+              formatted_content += "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
               fmt_pos = end + 2;
               continue;
             }
@@ -648,8 +638,8 @@ namespace widget {
         }
 
         // Save any pending paragraph
-        if (!current_para.empty()) {
-          if (!paragraphs.back().content.empty())
+        if (! current_para.empty()) {
+          if (! paragraphs.back().content.empty())
             paragraphs.emplace_back();
           paragraphs.back().content = current_para;
           current_para.clear();
@@ -657,10 +647,10 @@ namespace widget {
         }
 
         // Add as blockquote paragraph with metadata
-        if (!paragraphs.back().content.empty())
+        if (! paragraphs.back().content.empty())
           paragraphs.emplace_back();
         paragraphs.back().content = formatted_content;
-        paragraphs.back().is_reflow = !is_list; // Lists don't reflow
+        paragraphs.back().is_reflow = ! is_list; // Lists don't reflow
         paragraphs.back().is_blockquote = true;
         paragraphs.back().blockquote_level = quote_level;
         paragraphs.back().is_list_item = is_list;
@@ -693,24 +683,18 @@ namespace widget {
         size_t content_start = indent_pos;
 
         // Check for unordered list markers (-, *, +)
-        if (indent_pos + 1 < raw_markdown.size() &&
-            (raw_markdown[indent_pos] == '-' || raw_markdown[indent_pos] == '*' ||
-             raw_markdown[indent_pos] == '+') &&
-            raw_markdown[indent_pos + 1] == ' ') {
+        if (indent_pos + 1 < raw_markdown.size() && (raw_markdown[indent_pos] == '-' || raw_markdown[indent_pos] == '*' || raw_markdown[indent_pos] == '+') && raw_markdown[indent_pos + 1] == ' ') {
           is_list_item = true;
           is_ordered = false;
           content_start = indent_pos + 2;
         }
         // Check for ordered list markers (digit(s) followed by .)
-        else if (indent_pos < raw_markdown.size() &&
-                 raw_markdown[indent_pos] >= '0' && raw_markdown[indent_pos] <= '9') {
+        else if (indent_pos < raw_markdown.size() && raw_markdown[indent_pos] >= '0' && raw_markdown[indent_pos] <= '9') {
           size_t digit_end = indent_pos;
-          while (digit_end < raw_markdown.size() && raw_markdown[digit_end] >= '0' &&
-                 raw_markdown[digit_end] <= '9')
+          while (digit_end < raw_markdown.size() && raw_markdown[digit_end] >= '0' && raw_markdown[digit_end] <= '9')
             ++digit_end;
 
-          if (digit_end + 1 < raw_markdown.size() && raw_markdown[digit_end] == '.' &&
-              raw_markdown[digit_end + 1] == ' ') {
+          if (digit_end + 1 < raw_markdown.size() && raw_markdown[digit_end] == '.' && raw_markdown[digit_end + 1] == ' ') {
             is_list_item = true;
             is_ordered = true;
             content_start = digit_end + 2;
@@ -726,8 +710,8 @@ namespace widget {
           std::string item_content = raw_markdown.substr(content_start, item_end - content_start);
 
           // Save any pending paragraph
-          if (!current_para.empty()) {
-            if (!paragraphs.back().content.empty())
+          if (! current_para.empty()) {
+            if (! paragraphs.back().content.empty())
               paragraphs.emplace_back();
             paragraphs.back().content = current_para;
             current_para.clear();
@@ -744,7 +728,7 @@ namespace widget {
           }
 
           // Add as list item paragraph with metadata
-          if (!paragraphs.back().content.empty())
+          if (! paragraphs.back().content.empty())
             paragraphs.emplace_back();
           paragraphs.back().content = item_content;
           paragraphs.back().is_reflow = false;
@@ -763,7 +747,7 @@ namespace widget {
         }
 
         // If we had a list but this isn't a list item, clear the list stack
-        if (!is_list_item && !list_stack.empty()) {
+        if (! is_list_item && ! list_stack.empty()) {
           // Check if this is a blank line (which ends the list)
           if (indent_pos < raw_markdown.size() && raw_markdown[indent_pos] == '\n') {
             list_stack.clear();
@@ -933,9 +917,8 @@ namespace widget {
         std::string blockquote_prefix;
 
         // Build blockquote prefix with ▌ markers at start of each level
-        for (unsigned j = 0; j < para.blockquote_level; ++j) {
+        for (unsigned j = 0; j < para.blockquote_level; ++j)
           blockquote_prefix += "\N{LEFT HALF BLOCK}   "; // ▌ + 3 spaces
-        }
 
         // Check if this blockquote is also a list item
         if (para.is_list_item) {
@@ -953,25 +936,21 @@ namespace widget {
           for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
             list_counters[j] = 0;
 
-          // Build list item prefix (after blockquote prefix)
-          std::string list_prefix;
-          for (unsigned j = 0; j < para.list_level; ++j)
-            list_prefix += "  "; // Indent by 2 spaces per level
+          // Build list item prefix (after blockquote prefix).   Indent by 2 spaces per level.
+          std::string list_prefix(para.list_level * 2, ' ');
 
           // Add bullet or number
-          if (para.is_ordered) {
+          if (para.is_ordered)
             list_prefix += std::format("{}. ", list_counters[para.list_level]);
-          } else {
-            static constexpr const char* bullets[] = {"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-",
-                                                       "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
+          else {
+            static constexpr const char* bullets[] = {"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-", "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
             unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
             list_prefix += std::string(bullets[bullet_index]) + " ";
           }
 
           // Combine blockquote and list prefixes with content
           std::string full_line = blockquote_prefix + list_prefix + para.content;
-          unsigned available_width = content_width > indent ? content_width - indent : 1;
-          all_lines.push_back(truncate_text(full_line, content_width));
+          all_lines.push_back(truncate_text(std::move(full_line), content_width));
         } else {
           // Regular blockquote (not a list)
           unsigned available_width = content_width > indent ? content_width - indent : 1;
@@ -1012,12 +991,12 @@ namespace widget {
         } else {
           // Use different bullets for different levels
           static constexpr const char* bullets[] = {
-              "\N{BLACK CIRCLE}",           // ● level 0
-              "\N{WHITE CIRCLE}",           // ○ level 1
-              "-",                          // - level 2
-              "*",                          // * level 3
-              "\N{MIDDLE DOT}",             // · level 4
-              "\N{MIDDLE DOT}"              // · level 5+
+            "\N{BLACK CIRCLE}", // ● level 0
+            "\N{WHITE CIRCLE}", // ○ level 1
+            "-",                // - level 2
+            "*",                // * level 3
+            "\N{MIDDLE DOT}",   // · level 4
+            "\N{MIDDLE DOT}"    // · level 5+
           };
           unsigned bullet_index = para.list_level < 6 ? para.list_level : 5;
           prefix += std::string(bullets[bullet_index]) + " ";
@@ -1025,7 +1004,7 @@ namespace widget {
 
         // Add prefixed content as a single line
         std::string formatted_item = prefix + para.content;
-        all_lines.push_back(truncate_text(formatted_item, content_width));
+        all_lines.push_back(truncate_text(std::move(formatted_item), content_width));
       } else {
         // Fixed paragraph - split into lines
         std::string::size_type pos = 0;
@@ -1034,7 +1013,7 @@ namespace widget {
           if (newline_pos == std::string::npos)
             newline_pos = para.content.size();
           std::string line = para.content.substr(pos, newline_pos - pos);
-          all_lines.push_back(truncate_text(line, content_width));
+          all_lines.push_back(truncate_text(std::move(line), content_width));
           pos = newline_pos + 1;
         }
       }
@@ -1048,19 +1027,15 @@ namespace widget {
           add_empty_line = false;
         }
         // Skip empty line for consecutive list items of the same type at any level
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
-                 para.is_ordered == paragraphs[i + 1].is_ordered) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.is_ordered == paragraphs[i + 1].is_ordered) {
           add_empty_line = false;
         }
         // Skip if next item is at a different nesting level (deeper or shallower)
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
-                 paragraphs[i + 1].list_level != para.list_level) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && paragraphs[i + 1].list_level != para.list_level) {
           add_empty_line = false;
         }
         // Add empty line only if list types differ at the same level
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item &&
-                 para.list_level == paragraphs[i + 1].list_level &&
-                 para.is_ordered != paragraphs[i + 1].is_ordered) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.list_level == paragraphs[i + 1].list_level && para.is_ordered != paragraphs[i + 1].is_ordered) {
           add_empty_line = true;
         }
 
@@ -1248,16 +1223,17 @@ namespace widget {
     return lines;
   }
 
-  std::string textbox::truncate_text(const std::string& text, unsigned width) const
+  std::string textbox::truncate_text(std::string&& text, unsigned width) const
   {
     auto metrics = measure_text(text, width);
-    std::string result = text.substr(0, metrics.byte_length);
 
-    // Pad to width
-    if (metrics.display_width < width)
-      result += std::string(width - metrics.display_width, ' ');
+    if (metrics.display_width > width)
+      text.resize(metrics.byte_length);
+    else if (metrics.display_width < width)
+      // Pad to width
+      text.append(width - metrics.display_width, ' ');
 
-    return result;
+    return text;
   }
 
   std::tuple<unsigned, unsigned> textbox::get_terminal_dimensions()
