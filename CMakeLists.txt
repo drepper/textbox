@@ -120,3 +120,11 @@ target_link_libraries(test_verify_behavior PUBLIC textbox)
 add_executable(test_final_behavior test_final_behavior.cc config.hh)
 target_include_directories(test_final_behavior PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(test_final_behavior PUBLIC textbox)
+
+add_executable(test_skip_numbering test_skip_numbering.cc config.hh)
+target_include_directories(test_skip_numbering PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_skip_numbering PUBLIC textbox)
+
+add_executable(test_manual_numbers test_manual_numbers.cc config.hh)
+target_include_directories(test_manual_numbers PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_manual_numbers PUBLIC textbox)

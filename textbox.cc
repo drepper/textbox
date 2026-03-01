@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cstdio>
 #include <format>
 #include <iterator>
@@ -358,6 +359,21 @@ namespace widget {
           size_t last = heading_text.find_last_not_of(" \t\r");
           if (last != std::string::npos)
             heading_text = heading_text.substr(0, last + 1);
+
+          // Skip leading manual numbering (e.g., "1. " or "1.2.3 ")
+          size_t text_start = 0;
+          // Skip leading whitespace
+          while (text_start < heading_text.size() && (heading_text[text_start] == ' ' || heading_text[text_start] == '\t'))
+            ++text_start;
+          // Skip digits and dots
+          while (text_start < heading_text.size() && (::isdigit(heading_text[text_start]) || heading_text[text_start] == '.'))
+            ++text_start;
+          // Skip whitespace after the number
+          while (text_start < heading_text.size() && (heading_text[text_start] == ' ' || heading_text[text_start] == '\t'))
+            ++text_start;
+          // Extract the actual heading text
+          if (text_start > 0 && text_start < heading_text.size())
+            heading_text = heading_text.substr(text_start);
 
           // Update minimum heading level if this is shallower
           if (heading_level < min_heading_level)
