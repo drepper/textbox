@@ -308,6 +308,15 @@ namespace widget {
     // Reset heading counters
     std::ranges::fill(heading_counters, 0);
 
+    // Track headings for dynamic renumbering
+    size_t min_heading_level = max_heading_level + 1;
+    struct heading_entry {
+      size_t para_idx;
+      size_t level;
+      std::string text;
+    };
+    std::vector<heading_entry> heading_list;
+
     // List state tracking
     struct list_level {
       bool is_ordered = false;
@@ -350,15 +359,9 @@ namespace widget {
           if (last != std::string::npos)
             heading_text = heading_text.substr(0, last + 1);
 
-          // Update heading counters - increment current level, reset lower levels
-          ++heading_counters[heading_level - 1];
-          std::fill_n(heading_counters.data() + heading_level, max_heading_level - heading_level, 0);
-
-          // Build hierarchical numbering prefix: ¶ 1.2.3  heading text
-          auto numbering = std::format("\N{PILCROW SIGN} {}", heading_counters[0]);
-          for (size_t i = 1; i < heading_level; ++i)
-            std::format_to(std::back_inserter(numbering), ".{}", heading_counters[i]);
-          numbering += "  ";
+          // Update minimum heading level if this is shallower
+          if (heading_level < min_heading_level)
+            min_heading_level = heading_level;
 
           // Save any pending paragraph
           if (! current_para.empty()) {
@@ -366,10 +369,6 @@ namespace widget {
             current_para.clear();
             paragraphs.emplace_back();
           }
-
-          // Build heading with appropriate color based on level
-          std::string formatted_heading;
-          formatted_heading = color_escape(hx_fg[heading_level - 1], true) + numbering + heading_text + "\e[0m";
 
           // Save any pending paragraph content first
           if (! current_para.empty()) {
@@ -383,8 +382,56 @@ namespace widget {
           // Add heading as new paragraph (always fixed to preserve formatting)
           if (! paragraphs.back().content.empty())
             paragraphs.emplace_back();
-          paragraphs.back().content = formatted_heading;
+
+          // Record this heading
+          size_t para_idx = paragraphs.size() - 1;
+          heading_list.push_back({para_idx, heading_level, heading_text});
+
+          // Set placeholder content
+          paragraphs.back().content = "";
           paragraphs.back().is_reflow = false;
+
+          // Renumber all headings
+          std::ranges::fill(heading_counters, 0);
+
+          unsigned last_displayed_counter = 0;
+
+          for (const auto& h : heading_list) {
+            size_t norm_level = h.level - min_heading_level;
+
+            // Check if all parent counters are zero
+            bool all_parents_zero = true;
+            for (size_t i = 0; i < norm_level; ++i) {
+              if (heading_counters[i] != 0) {
+                all_parents_zero = false;
+                break;
+              }
+            }
+
+            // If all parents are zero, we're at top display level - use sequential counter
+            if (all_parents_zero) {
+              ++last_displayed_counter;
+              heading_counters[norm_level] = last_displayed_counter;
+            } else {
+              // Normal hierarchical numbering
+              ++heading_counters[norm_level];
+            }
+
+            // Reset deeper levels
+            std::fill_n(heading_counters.data() + norm_level + 1, max_heading_level - norm_level - 1, 0);
+
+            // Build numbering, skipping leading zeros
+            size_t display_start = 0;
+            while (display_start < norm_level && heading_counters[display_start] == 0)
+              ++display_start;
+
+            auto numbering = std::format("\N{PILCROW SIGN} {}", heading_counters[display_start]);
+            for (size_t i = display_start + 1; i <= norm_level; ++i)
+              std::format_to(std::back_inserter(numbering), ".{}", heading_counters[i]);
+            numbering += "  ";
+
+            paragraphs[h.para_idx].content = color_escape(hx_fg[h.level - 1], true) + numbering + h.text + "\e[0m";
+          }
 
           // Move past heading and its newline
           pos = heading_end;

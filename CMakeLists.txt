@@ -80,3 +80,27 @@ add_test(NAME "textbox:basic" COMMAND textbox_test)
 add_executable(test_cursor test_cursor.cc config.hh)
 target_include_directories(test_cursor PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(test_cursor PUBLIC textbox)
+
+add_executable(test_heading_numbering test_heading_numbering.cc config.hh)
+target_include_directories(test_heading_numbering PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_numbering PUBLIC textbox)
+
+add_executable(test_heading_simple test_heading_simple.cc config.hh)
+target_include_directories(test_heading_simple PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_simple PUBLIC textbox)
+
+add_executable(test_heading_verify test_heading_verify.cc config.hh)
+target_include_directories(test_heading_verify PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_verify PUBLIC textbox)
+
+add_executable(test_heading_final test_heading_final.cc config.hh)
+target_include_directories(test_heading_final PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_final PUBLIC textbox)
+
+add_executable(test_heading_debug2 test_heading_debug2.cc config.hh)
+target_include_directories(test_heading_debug2 PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_debug2 PUBLIC textbox)
+
+add_executable(test_heading_comprehensive test_heading_comprehensive.cc config.hh)
+target_include_directories(test_heading_comprehensive PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_heading_comprehensive PUBLIC textbox)
