@@ -1,7 +1,8 @@
-#include <cstddef>
 #ifndef _TEXTBOX_HH
 # define _TEXTBOX_HH 1
 
+# include <array>
+# include <cstddef>
 # include <cstdint>
 # include <string>
 # include <vector>

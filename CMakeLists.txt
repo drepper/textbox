@@ -128,3 +128,11 @@ target_link_libraries(test_skip_numbering PUBLIC textbox)
 add_executable(test_manual_numbers test_manual_numbers.cc config.hh)
 target_include_directories(test_manual_numbers PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(test_manual_numbers PUBLIC textbox)
+
+add_executable(test_list_formatting test_list_formatting.cc config.hh)
+target_include_directories(test_list_formatting PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_list_formatting PUBLIC textbox)
+
+add_executable(test_complete_features test_complete_features.cc config.hh)
+target_include_directories(test_complete_features PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_complete_features PUBLIC textbox)

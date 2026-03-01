@@ -783,7 +783,73 @@ namespace widget {
           if (item_end == std::string::npos)
             item_end = raw_markdown.size();
 
-          std::string item_content = raw_markdown.substr(content_start, item_end - content_start);
+          std::string item_content_raw = raw_markdown.substr(content_start, item_end - content_start);
+
+          // Process inline formatting in list item content
+          std::string item_content;
+          size_t fmt_pos = 0;
+          while (fmt_pos < item_content_raw.size()) {
+            char ch = item_content_raw[fmt_pos];
+
+            // Check for inline code `...`
+            if (ch == '`') {
+              size_t end = item_content_raw.find('`', fmt_pos + 1);
+              if (end != std::string::npos) {
+                std::string code_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
+                item_content += color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m";
+                fmt_pos = end + 1;
+                continue;
+              }
+            }
+
+            // Check for bold **...**
+            if (fmt_pos + 1 < item_content_raw.size() && ch == '*' && item_content_raw[fmt_pos + 1] == '*') {
+              size_t end = item_content_raw.find("**", fmt_pos + 2);
+              if (end != std::string::npos) {
+                std::string bold_text = item_content_raw.substr(fmt_pos + 2, end - fmt_pos - 2);
+                item_content += "\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[22m\e[0m";
+                fmt_pos = end + 2;
+                continue;
+              }
+            }
+
+            // Check for italic *...*
+            if (ch == '*') {
+              size_t end = item_content_raw.find('*', fmt_pos + 1);
+              if (end != std::string::npos) {
+                std::string italic_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
+                item_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+                fmt_pos = end + 1;
+                continue;
+              }
+            }
+
+            // Check for italic _..._
+            if (ch == '_') {
+              size_t end = item_content_raw.find('_', fmt_pos + 1);
+              if (end != std::string::npos) {
+                std::string italic_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
+                item_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
+                fmt_pos = end + 1;
+                continue;
+              }
+            }
+
+            // Check for strikethrough ~~...~~
+            if (fmt_pos + 1 < item_content_raw.size() && ch == '~' && item_content_raw[fmt_pos + 1] == '~') {
+              size_t end = item_content_raw.find("~~", fmt_pos + 2);
+              if (end != std::string::npos) {
+                std::string strike_text = item_content_raw.substr(fmt_pos + 2, end - fmt_pos - 2);
+                item_content += "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
+                fmt_pos = end + 2;
+                continue;
+              }
+            }
+
+            // Regular character
+            item_content += ch;
+            ++fmt_pos;
+          }
 
           // Save any pending paragraph
           if (! current_para.empty()) {

@@ -267,6 +267,7 @@ It will use the default code styling.
       box.add_markdown("- itemize item #2\n");
       box.add_markdown("  - itemize item #2.1\n");
       box.add_markdown("- itemize item #3\n\n");
+      box.add_markdown("  - **itemize item** #2.1\n");
 
       box.add_markdown("1. enumerate item #1\n");
       box.add_markdown("1. enumerate item #2\n");
