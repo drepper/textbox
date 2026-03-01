@@ -391,13 +391,19 @@ namespace widget {
           paragraphs.back().content = "";
           paragraphs.back().is_reflow = false;
 
-          // Renumber all headings
+          // Renumber all headings, tracking minimum level as we go
           std::ranges::fill(heading_counters, 0);
 
           unsigned last_displayed_counter = 0;
+          size_t min_level_so_far = max_heading_level + 1;
 
           for (const auto& h : heading_list) {
-            size_t norm_level = h.level - min_heading_level;
+            // Update minimum level encountered so far
+            if (h.level < min_level_so_far)
+              min_level_so_far = h.level;
+
+            // Calculate normalized level based on minimum seen so far
+            size_t norm_level = h.level - min_level_so_far;
 
             // Check if all parent counters are zero
             bool all_parents_zero = true;
@@ -420,15 +426,22 @@ namespace widget {
             // Reset deeper levels
             std::fill_n(heading_counters.data() + norm_level + 1, max_heading_level - norm_level - 1, 0);
 
-            // Build numbering, skipping leading zeros
-            size_t display_start = 0;
-            while (display_start < norm_level && heading_counters[display_start] == 0)
-              ++display_start;
+            // Build numbering, skipping the minimum level counter
+            std::string numbering;
+            if (norm_level == 0) {
+              // Minimum level heading: just pilcrow with no number
+              numbering = "\N{PILCROW SIGN}  ";
+            } else {
+              // Sub-headings: skip leading zeros and the minimum level counter (start from level 1)
+              size_t display_start = 1;
+              while (display_start < norm_level && heading_counters[display_start] == 0)
+                ++display_start;
 
-            auto numbering = std::format("\N{PILCROW SIGN} {}", heading_counters[display_start]);
-            for (size_t i = display_start + 1; i <= norm_level; ++i)
-              std::format_to(std::back_inserter(numbering), ".{}", heading_counters[i]);
-            numbering += "  ";
+              numbering = std::format("\N{PILCROW SIGN} {}", heading_counters[display_start]);
+              for (size_t i = display_start + 1; i <= norm_level; ++i)
+                std::format_to(std::back_inserter(numbering), ".{}", heading_counters[i]);
+              numbering += "  ";
+            }
 
             paragraphs[h.para_idx].content = color_escape(hx_fg[h.level - 1], true) + numbering + h.text + "\e[0m";
           }

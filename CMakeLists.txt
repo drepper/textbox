@@ -104,3 +104,19 @@ target_link_libraries(test_heading_debug2 PUBLIC textbox)
 add_executable(test_heading_comprehensive test_heading_comprehensive.cc config.hh)
 target_include_directories(test_heading_comprehensive PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(test_heading_comprehensive PUBLIC textbox)
+
+add_executable(test_numbering_final test_numbering_final.cc config.hh)
+target_include_directories(test_numbering_final PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_numbering_final PUBLIC textbox)
+
+add_executable(test_visual test_visual.cc config.hh)
+target_include_directories(test_visual PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_visual PUBLIC textbox)
+
+add_executable(test_verify_behavior test_verify_behavior.cc config.hh)
+target_include_directories(test_verify_behavior PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_verify_behavior PUBLIC textbox)
+
+add_executable(test_final_behavior test_final_behavior.cc config.hh)
+target_include_directories(test_final_behavior PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(test_final_behavior PUBLIC textbox)
