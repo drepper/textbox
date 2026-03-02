@@ -73,68 +73,20 @@ target_link_libraries(textbox PUBLIC termdetect unistring source-highlight)
 set_property(TARGET textbox PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
 if(PROJECT_IS_TOP_LEVEL)
-add_executable(textbox_test textbox_test.cc config.hh)
-target_include_directories(textbox_test PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(textbox_test PUBLIC textbox)
-add_test(NAME "textbox:basic" COMMAND textbox_test)
+  add_executable(textbox_test textbox_test.cc config.hh)
+  target_include_directories(textbox_test PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(textbox_test PUBLIC textbox)
+  add_test(NAME "textbox:basic" COMMAND textbox_test)
 
-add_executable(test_cursor test_cursor.cc config.hh)
-target_include_directories(test_cursor PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_cursor PUBLIC textbox)
+  add_executable(test_heading_simple test_heading_simple.cc config.hh)
+  target_include_directories(test_heading_simple PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(test_heading_simple PUBLIC textbox)
 
-add_executable(test_heading_numbering test_heading_numbering.cc config.hh)
-target_include_directories(test_heading_numbering PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_numbering PUBLIC textbox)
+  add_executable(test_visual test_visual.cc config.hh)
+  target_include_directories(test_visual PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(test_visual PUBLIC textbox)
 
-add_executable(test_heading_simple test_heading_simple.cc config.hh)
-target_include_directories(test_heading_simple PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_simple PUBLIC textbox)
-
-add_executable(test_heading_verify test_heading_verify.cc config.hh)
-target_include_directories(test_heading_verify PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_verify PUBLIC textbox)
-
-add_executable(test_heading_final test_heading_final.cc config.hh)
-target_include_directories(test_heading_final PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_final PUBLIC textbox)
-
-add_executable(test_heading_debug2 test_heading_debug2.cc config.hh)
-target_include_directories(test_heading_debug2 PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_debug2 PUBLIC textbox)
-
-add_executable(test_heading_comprehensive test_heading_comprehensive.cc config.hh)
-target_include_directories(test_heading_comprehensive PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_heading_comprehensive PUBLIC textbox)
-
-add_executable(test_numbering_final test_numbering_final.cc config.hh)
-target_include_directories(test_numbering_final PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_numbering_final PUBLIC textbox)
-
-add_executable(test_visual test_visual.cc config.hh)
-target_include_directories(test_visual PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_visual PUBLIC textbox)
-
-add_executable(test_verify_behavior test_verify_behavior.cc config.hh)
-target_include_directories(test_verify_behavior PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_verify_behavior PUBLIC textbox)
-
-add_executable(test_final_behavior test_final_behavior.cc config.hh)
-target_include_directories(test_final_behavior PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_final_behavior PUBLIC textbox)
-
-add_executable(test_skip_numbering test_skip_numbering.cc config.hh)
-target_include_directories(test_skip_numbering PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_skip_numbering PUBLIC textbox)
-
-add_executable(test_manual_numbers test_manual_numbers.cc config.hh)
-target_include_directories(test_manual_numbers PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_manual_numbers PUBLIC textbox)
-
-add_executable(test_list_formatting test_list_formatting.cc config.hh)
-target_include_directories(test_list_formatting PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_list_formatting PUBLIC textbox)
-
-add_executable(test_complete_features test_complete_features.cc config.hh)
-target_include_directories(test_complete_features PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(test_complete_features PUBLIC textbox)
+  add_executable(test_complete_features test_complete_features.cc config.hh)
+  target_include_directories(test_complete_features PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(test_complete_features PUBLIC textbox)
 endif()
