@@ -932,6 +932,15 @@ namespace widget {
 
     int fd = term_info.get_fd();
 
+    // Use different bullets for different levels
+    static constexpr const std::array bullets{
+      "\N{BLACK CIRCLE}", // ● level 0
+      "\N{WHITE CIRCLE}", // ○ level 1
+      "-",                // - level 2
+      "*",                // * level 3
+      "\N{MIDDLE DOT}",   // · level 4+
+    };
+
     // Clear to end of line when re-rendering to remove artifacts
     std::string clear_eol = has_been_drawn && right_margin > 0 ? "\e[K" : "";
 
@@ -983,7 +992,6 @@ namespace widget {
           if (para.is_ordered)
             std::format_to(std::back_inserter(list_prefix), "{}. ", list_counters[para.list_level]);
           else {
-            static constexpr const std::array bullets{"\N{BLACK CIRCLE}", "\N{WHITE CIRCLE}", "-", "*", "\N{MIDDLE DOT}", "\N{MIDDLE DOT}"};
             auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
             std::format_to(std::back_inserter(list_prefix), "{} ", bullets[bullet_index]);
           }
@@ -1037,14 +1045,6 @@ namespace widget {
         if (para.is_ordered)
           bullet_prefix = std::format("{}. ", list_counters[para.list_level]);
         else {
-          // Use different bullets for different levels
-          static constexpr const std::array bullets{
-            "\N{BLACK CIRCLE}", // ● level 0
-            "\N{WHITE CIRCLE}", // ○ level 1
-            "-",                // - level 2
-            "*",                // * level 3
-            "\N{MIDDLE DOT}",   // · level 4+
-          };
           auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
           bullet_prefix = std::string(bullets[bullet_index]) + " ";
         }
