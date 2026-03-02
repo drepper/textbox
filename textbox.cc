@@ -1090,21 +1090,17 @@ namespace widget {
         bool add_empty_line = true;
 
         // Skip empty line for consecutive blockquotes at any level (same, deeper, or shallower)
-        if (para.is_blockquote && paragraphs[i + 1].is_blockquote) {
+        if (para.is_blockquote && paragraphs[i + 1].is_blockquote)
           add_empty_line = false;
-        }
         // Skip empty line for consecutive list items of the same type at any level
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.is_ordered == paragraphs[i + 1].is_ordered) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.is_ordered == paragraphs[i + 1].is_ordered)
           add_empty_line = false;
-        }
         // Skip if next item is at a different nesting level (deeper or shallower)
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item && paragraphs[i + 1].list_level != para.list_level) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && paragraphs[i + 1].list_level != para.list_level)
           add_empty_line = false;
-        }
         // Add empty line only if list types differ at the same level
-        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.list_level == paragraphs[i + 1].list_level && para.is_ordered != paragraphs[i + 1].is_ordered) {
+        else if (para.is_list_item && paragraphs[i + 1].is_list_item && para.list_level == paragraphs[i + 1].list_level && para.is_ordered != paragraphs[i + 1].is_ordered)
           add_empty_line = true;
-        }
 
         if (add_empty_line)
           all_lines.push_back(std::string(content_width, ' '));
@@ -1270,9 +1266,9 @@ namespace widget {
         // Pad line to width
         unsigned line_width = calculate_display_width(line);
         if (line_width < width)
-          line += std::string(width - line_width, ' ');
+          line.append(width - line_width, ' ');
 
-        lines.push_back(line);
+        lines.push_back(std::move(line));
         pos = break_point;
 
         // Skip leading spaces on next line
