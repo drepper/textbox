@@ -326,6 +326,77 @@ namespace widget {
     std::vector<list_level> list_stack;
     constexpr unsigned indent_size = 2; // Number of spaces per indent level
 
+    // Helper function to check and process inline formatting at current position
+    // Returns: {formatted_text, new_position} or {"", 0} if no formatting found
+    auto try_inline_format = [&](const std::string& text, size_t pos_in) -> std::pair<std::string, size_t> {
+      if (pos_in >= text.size())
+        return {"", 0};
+
+      char ch = text[pos_in];
+
+      // Check for inline code `...`
+      if (ch == '`') {
+        size_t end = text.find('`', pos_in + 1);
+        if (end != std::string::npos) {
+          std::string code_text = text.substr(pos_in + 1, end - pos_in - 1);
+          return {color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m", end + 1};
+        }
+      }
+
+      // Check for bold **...**
+      if (pos_in + 1 < text.size() && ch == '*' && text[pos_in + 1] == '*') {
+        size_t end = text.find("**", pos_in + 2);
+        // Deliberately use end even if it is npos.
+        std::string bold_text = text.substr(pos_in + 2, end - pos_in - 2);
+        return {"\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[0m", end + 2};
+      }
+
+      // Check for italic *...*
+      if (ch == '*') {
+        size_t end = text.find('*', pos_in + 1);
+        // Deliberately use end even if it is npos.
+        std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
+        return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+      }
+
+      // Check for italic _..._
+      if (ch == '_') {
+        size_t end = text.find('_', pos_in + 1);
+        // Deliberately use end even if it is npos.
+        std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
+        return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+      }
+
+      // Check for strikethrough ~~...~~
+      if (pos_in + 1 < text.size() && ch == '~' && text[pos_in + 1] == '~') {
+        size_t end = text.find("~~", pos_in + 2);
+        // Deliberately use end even if it is npos.
+        std::string strike_text = text.substr(pos_in + 2, end - pos_in - 2);
+        return {"\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[0m", end + 2};
+      }
+
+      return {"", 0};
+    };
+
+    // Helper function to process inline formatting (bold, italic, code, strikethrough)
+    auto process_inline_formatting = [&](const std::string& text) -> std::string {
+      std::string result;
+      size_t fmt_pos = 0;
+
+      while (fmt_pos < text.size()) {
+        auto [formatted, new_pos] = try_inline_format(text, fmt_pos);
+        if (new_pos > 0) {
+          result += formatted;
+          fmt_pos = new_pos;
+        } else {
+          result += text[fmt_pos];
+          ++fmt_pos;
+        }
+      }
+
+      return result;
+    };
+
     size_t pos = 0;
     std::string current_para;
     bool at_line_start = true;
@@ -648,70 +719,7 @@ namespace widget {
         std::string quote_content = quote_content_raw.substr(content_pos);
 
         // Process inline formatting
-        std::string formatted_content;
-        size_t fmt_pos = 0;
-        while (fmt_pos < quote_content.size()) {
-          char ch = quote_content[fmt_pos];
-
-          // Check for inline code `...`
-          if (ch == '`') {
-            size_t end = quote_content.find('`', fmt_pos + 1);
-            if (end != std::string::npos) {
-              std::string code_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content += color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m";
-              fmt_pos = end + 1;
-              continue;
-            }
-          }
-
-          // Check for bold **...**
-          if (fmt_pos + 1 < quote_content.size() && ch == '*' && quote_content[fmt_pos + 1] == '*') {
-            size_t end = quote_content.find("**", fmt_pos + 2);
-            if (end != std::string::npos) {
-              std::string bold_text = quote_content.substr(fmt_pos + 2, end - fmt_pos - 2);
-              formatted_content += "\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[22m\e[0m";
-              fmt_pos = end + 2;
-              continue;
-            }
-          }
-
-          // Check for italic *...*
-          if (ch == '*') {
-            size_t end = quote_content.find('*', fmt_pos + 1);
-            if (end != std::string::npos) {
-              std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-              fmt_pos = end + 1;
-              continue;
-            }
-          }
-
-          // Check for italic _..._
-          if (ch == '_') {
-            size_t end = quote_content.find('_', fmt_pos + 1);
-            if (end != std::string::npos) {
-              std::string italic_text = quote_content.substr(fmt_pos + 1, end - fmt_pos - 1);
-              formatted_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-              fmt_pos = end + 1;
-              continue;
-            }
-          }
-
-          // Check for strikethrough ~~...~~
-          if (fmt_pos + 1 < quote_content.size() && ch == '~' && quote_content[fmt_pos + 1] == '~') {
-            size_t end = quote_content.find("~~", fmt_pos + 2);
-            if (end != std::string::npos) {
-              std::string strike_text = quote_content.substr(fmt_pos + 2, end - fmt_pos - 2);
-              formatted_content += "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
-              fmt_pos = end + 2;
-              continue;
-            }
-          }
-
-          // Regular character
-          formatted_content += ch;
-          ++fmt_pos;
-        }
+        std::string formatted_content = process_inline_formatting(quote_content);
 
         // Save any pending paragraph
         if (! current_para.empty()) {
@@ -786,70 +794,7 @@ namespace widget {
           std::string item_content_raw = raw_markdown.substr(content_start, item_end - content_start);
 
           // Process inline formatting in list item content
-          std::string item_content;
-          size_t fmt_pos = 0;
-          while (fmt_pos < item_content_raw.size()) {
-            char ch = item_content_raw[fmt_pos];
-
-            // Check for inline code `...`
-            if (ch == '`') {
-              size_t end = item_content_raw.find('`', fmt_pos + 1);
-              if (end != std::string::npos) {
-                std::string code_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
-                item_content += color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m";
-                fmt_pos = end + 1;
-                continue;
-              }
-            }
-
-            // Check for bold **...**
-            if (fmt_pos + 1 < item_content_raw.size() && ch == '*' && item_content_raw[fmt_pos + 1] == '*') {
-              size_t end = item_content_raw.find("**", fmt_pos + 2);
-              if (end != std::string::npos) {
-                std::string bold_text = item_content_raw.substr(fmt_pos + 2, end - fmt_pos - 2);
-                item_content += "\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[22m\e[0m";
-                fmt_pos = end + 2;
-                continue;
-              }
-            }
-
-            // Check for italic *...*
-            if (ch == '*') {
-              size_t end = item_content_raw.find('*', fmt_pos + 1);
-              if (end != std::string::npos) {
-                std::string italic_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
-                item_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-                fmt_pos = end + 1;
-                continue;
-              }
-            }
-
-            // Check for italic _..._
-            if (ch == '_') {
-              size_t end = item_content_raw.find('_', fmt_pos + 1);
-              if (end != std::string::npos) {
-                std::string italic_text = item_content_raw.substr(fmt_pos + 1, end - fmt_pos - 1);
-                item_content += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-                fmt_pos = end + 1;
-                continue;
-              }
-            }
-
-            // Check for strikethrough ~~...~~
-            if (fmt_pos + 1 < item_content_raw.size() && ch == '~' && item_content_raw[fmt_pos + 1] == '~') {
-              size_t end = item_content_raw.find("~~", fmt_pos + 2);
-              if (end != std::string::npos) {
-                std::string strike_text = item_content_raw.substr(fmt_pos + 2, end - fmt_pos - 2);
-                item_content += "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
-                fmt_pos = end + 2;
-                continue;
-              }
-            }
-
-            // Regular character
-            item_content += ch;
-            ++fmt_pos;
-          }
+          std::string item_content = process_inline_formatting(item_content_raw);
 
           // Save any pending paragraph
           if (! current_para.empty()) {
@@ -931,64 +876,16 @@ namespace widget {
         continue;
       }
 
-      // Check for inline code `...`
-      if (ch == '`') {
-        size_t end = raw_markdown.find('`', pos + 1);
-        if (end != std::string::npos) {
-          std::string code_text = raw_markdown.substr(pos + 1, end - pos - 1);
-          current_para += color_escape(code_fg, true) + color_escape(code_bg, false) + code_text + "\e[0m";
-          pos = end + 1;
-          continue;
-        }
+      // Try to process inline formatting
+      auto [formatted, new_pos] = try_inline_format(raw_markdown, pos);
+      if (new_pos > 0) {
+        current_para += formatted;
+        pos = new_pos;
+      } else {
+        // Regular character
+        current_para += ch;
+        ++pos;
       }
-
-      // Check for bold **...**
-      if (pos + 1 < raw_markdown.size() && ch == '*' && raw_markdown[pos + 1] == '*') {
-        size_t end = raw_markdown.find("**", pos + 2);
-        if (end != std::string::npos) {
-          std::string bold_text = raw_markdown.substr(pos + 2, end - pos - 2);
-          current_para += "\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[22m\e[0m";
-          pos = end + 2;
-          continue;
-        }
-      }
-
-      // Check for italic *...*
-      if (ch == '*') {
-        size_t end = raw_markdown.find('*', pos + 1);
-        if (end != std::string::npos) {
-          std::string italic_text = raw_markdown.substr(pos + 1, end - pos - 1);
-          current_para += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-          pos = end + 1;
-          continue;
-        }
-      }
-
-      // Check for italic _..._
-      if (ch == '_') {
-        size_t end = raw_markdown.find('_', pos + 1);
-        if (end != std::string::npos) {
-          std::string italic_text = raw_markdown.substr(pos + 1, end - pos - 1);
-          current_para += "\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[23m\e[0m";
-          pos = end + 1;
-          continue;
-        }
-      }
-
-      // Check for strikethrough ~~...~~
-      if (pos + 1 < raw_markdown.size() && ch == '~' && raw_markdown[pos + 1] == '~') {
-        size_t end = raw_markdown.find("~~", pos + 2);
-        if (end != std::string::npos) {
-          std::string strike_text = raw_markdown.substr(pos + 2, end - pos - 2);
-          current_para += "\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[29m\e[0m";
-          pos = end + 2;
-          continue;
-        }
-      }
-
-      // Regular character
-      current_para += ch;
-      ++pos;
     }
 
     // Add final paragraph if not empty
