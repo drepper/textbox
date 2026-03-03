@@ -1015,6 +1015,9 @@ namespace widget {
         }
       } else {
         // Fixed paragraph - split into lines
+        assert(para.blockquote_level == 0);
+        assert(para.list_level == 0);
+
         std::string::size_type pos = 0;
         while (pos < para.content.size()) {
           auto newline_pos = para.content.find('\n', pos);
