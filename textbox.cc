@@ -959,7 +959,7 @@ namespace widget {
       if (para.content.empty())
         continue;
 
-      if (para.is_blockquote) {
+      if (para.is_blockquote || para.is_list_item) {
         // Blockquote - wrap with indentation and quote markers
         unsigned indent = para.blockquote_level * 2;
         std::string blockquote_prefix;
@@ -1016,49 +1016,6 @@ namespace widget {
           auto lines = wrap_paragraph(para.content, available_width);
           for (auto& line : lines)
             all_lines.push_back(blockquote_prefix + line);
-        }
-      } else if (para.is_list_item) {
-        // List item - compute prefix during rendering
-
-        // Adjust counter array size to match list level
-        if (list_counters.size() <= para.list_level)
-          list_counters.resize(para.list_level + 1, 0);
-
-        // Increment counter for ordered lists at this level
-        if (para.is_ordered)
-          ++list_counters[para.list_level];
-        else
-          list_counters[para.list_level] = 0; // Reset for unordered items
-
-        // Reset deeper level counters
-        std::fill(list_counters.begin() + para.list_level + 1, list_counters.end(), 0);
-
-        // Build list item prefix (indentation + bullet/number)
-        std::string list_prefix;
-
-        // Add bullet or number
-        if (para.is_ordered)
-          list_prefix = std::format("{:{}s}{}. ", "", para.list_level * 2, list_counters[para.list_level]);
-        else {
-          auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
-          list_prefix = std::format("{:{}s}{} ", "", para.list_level * 2, bullets[bullet_index]);
-        }
-
-        unsigned prefix_width = calculate_display_width(list_prefix);
-
-        // Calculate available width for content
-        unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
-
-        // Wrap content
-        auto wrapped_lines = wrap_paragraph(para.content, available_width);
-
-        // Add first line with prefix
-        if (! wrapped_lines.empty()) {
-          all_lines.push_back(list_prefix + wrapped_lines[0]);
-
-          // Add continuation lines with hanging indent
-          for (size_t j = 1; j < wrapped_lines.size(); ++j)
-            all_lines.push_back(std::format("{:{}s}{}", "", prefix_width, wrapped_lines[j]));
         }
       } else if (para.is_reflow) {
         // Regular reflowable paragraph
