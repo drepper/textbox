@@ -959,14 +959,17 @@ namespace widget {
       if (para.content.empty())
         continue;
 
-      if (para.is_blockquote || para.is_list_item) {
+      if (para.is_blockquote || para.is_list_item || para.is_reflow) {
         // Blockquote - wrap with indentation and quote markers
-        unsigned indent = para.blockquote_level * 2;
+        unsigned prefix_width = para.blockquote_level * 2;
         std::string blockquote_prefix;
 
         // Build blockquote prefix with ▌ markers at start of each level
         for (unsigned j = 0; j < para.blockquote_level; ++j)
           blockquote_prefix += "\N{LEFT HALF BLOCK} "; // ▌ + 1 space
+
+        // Build list item prefix (indentation + bullet/number)
+        std::string list_prefix;
 
         // Check if this blockquote is also a list item
         if (para.is_list_item) {
@@ -978,13 +981,12 @@ namespace widget {
           if (para.is_ordered)
             ++list_counters[para.list_level];
           else
+            // Reset for the next time this level is used for enumeration instead of itemization.
+            // Not relevant for displaying itemization but still needed.
             list_counters[para.list_level] = 0;
 
           // Reset deeper level counters
           std::fill(list_counters.begin() + para.list_level + 1, list_counters.end(), 0);
-
-          // Build list item prefix (indentation + bullet/number)
-          std::string list_prefix;
 
           // Add bullet or number
           if (para.is_ordered)
@@ -994,33 +996,23 @@ namespace widget {
             list_prefix = std::format("{}{:{}s}{} ", blockquote_prefix, "", para.list_level * 2, bullets[bullet_index]);
           }
 
-          unsigned prefix_width = calculate_display_width(list_prefix);
-
-          // Calculate available width for content
-          unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
-
-          // Wrap content
-          auto wrapped_lines = wrap_paragraph(para.content, available_width);
-
-          // Add first line with full prefix
-          if (! wrapped_lines.empty()) {
-            all_lines.push_back(std::move(list_prefix) + wrapped_lines[0]);
-
-            // Add continuation lines with hanging indent
-            for (size_t j = 1; j < wrapped_lines.size(); ++j)
-              all_lines.push_back(std::format("{:{}}{}", blockquote_prefix, prefix_width, wrapped_lines[j]));
-          }
-        } else {
-          // Regular blockquote (not a list)
-          unsigned available_width = content_width > indent ? content_width - indent : 1;
-          auto lines = wrap_paragraph(para.content, available_width);
-          for (auto& line : lines)
-            all_lines.push_back(blockquote_prefix + line);
+          prefix_width = calculate_display_width(list_prefix);
         }
-      } else if (para.is_reflow) {
-        // Regular reflowable paragraph
-        auto lines = wrap_paragraph(para.content, content_width);
-        all_lines.insert(all_lines.end(), lines.begin(), lines.end());
+
+        // Calculate available width for content
+        unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
+
+        // Wrap content
+        auto wrapped_lines = wrap_paragraph(para.content, available_width);
+
+        // Add first line with full prefix
+        if (! wrapped_lines.empty()) {
+          all_lines.push_back(std::move(list_prefix) + wrapped_lines[0]);
+
+          // Add continuation lines with hanging indent
+          for (size_t j = 1; j < wrapped_lines.size(); ++j)
+            all_lines.push_back(std::format("{:{}}{}", blockquote_prefix, prefix_width, wrapped_lines[j]));
+        }
       } else {
         // Fixed paragraph - split into lines
         std::string::size_type pos = 0;
