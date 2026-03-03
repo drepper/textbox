@@ -981,19 +981,17 @@ namespace widget {
             list_counters[para.list_level] = 0;
 
           // Reset deeper level counters
-          for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
-            list_counters[j] = 0;
+          std::fill(list_counters.begin() + para.list_level + 1, list_counters.end(), 0);
 
           // Build list item prefix (indentation + bullet/number)
-          std::string list_prefix = blockquote_prefix;
-          list_prefix.append(para.list_level * 2, ' ');
+          std::string list_prefix;
 
           // Add bullet or number
           if (para.is_ordered)
-            std::format_to(std::back_inserter(list_prefix), "{}. ", list_counters[para.list_level]);
+            list_prefix = std::format("{}{:{}s}{}. ", blockquote_prefix, "", para.list_level * 2, list_counters[para.list_level]);
           else {
             auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
-            std::format_to(std::back_inserter(list_prefix), "{} ", bullets[bullet_index]);
+            list_prefix = std::format("{}{:{}s}{} ", blockquote_prefix, "", para.list_level * 2, bullets[bullet_index]);
           }
 
           unsigned prefix_width = calculate_display_width(list_prefix);
@@ -1033,21 +1031,20 @@ namespace widget {
           list_counters[para.list_level] = 0; // Reset for unordered items
 
         // Reset deeper level counters
-        for (size_t j = para.list_level + 1; j < list_counters.size(); ++j)
-          list_counters[j] = 0;
+        std::fill(list_counters.begin() + para.list_level + 1, list_counters.end(), 0);
 
         // Build list item prefix (indentation + bullet/number)
-        std::string full_prefix;
+        std::string list_prefix;
 
         // Add bullet or number
         if (para.is_ordered)
-          full_prefix = std::format("{:{}s}{}. ", "", para.list_level * 2, list_counters[para.list_level]);
+          list_prefix = std::format("{:{}s}{}. ", "", para.list_level * 2, list_counters[para.list_level]);
         else {
           auto bullet_index = std::min(para.list_level, static_cast<unsigned>(bullets.size() - 1));
-          full_prefix = std::format("{:{}s}{} ", "", para.list_level * 2, bullets[bullet_index]);
+          list_prefix = std::format("{:{}s}{} ", "", para.list_level * 2, bullets[bullet_index]);
         }
 
-        unsigned prefix_width = calculate_display_width(full_prefix);
+        unsigned prefix_width = calculate_display_width(list_prefix);
 
         // Calculate available width for content
         unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;
@@ -1057,7 +1054,7 @@ namespace widget {
 
         // Add first line with prefix
         if (! wrapped_lines.empty()) {
-          all_lines.push_back(full_prefix + wrapped_lines[0]);
+          all_lines.push_back(list_prefix + wrapped_lines[0]);
 
           // Add continuation lines with hanging indent
           for (size_t j = 1; j < wrapped_lines.size(); ++j)
