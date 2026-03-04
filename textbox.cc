@@ -322,9 +322,10 @@ namespace widget {
     struct list_level {
       bool is_ordered = false;
       unsigned counter = 0;
+      unsigned indent = 0; // Actual indentation in spaces
     };
     std::vector<list_level> list_stack;
-    constexpr unsigned indent_size = 2; // Number of spaces per indent level
+    std::vector<list_level> blockquote_list_stack;
 
     // Helper function to check and process inline formatting at current position
     // Returns: {formatted_text, new_position} or {"", 0} if no formatting found
@@ -693,10 +694,11 @@ namespace widget {
         bool is_ordered = false;
 
         // Count leading spaces for list nesting
+        unsigned leading_spaces = 0;
         while (content_pos < quote_content_raw.size() && quote_content_raw[content_pos] == ' ') {
+          ++leading_spaces;
           ++content_pos;
         }
-        list_level = content_pos / indent_size;
 
         // Check for list markers
         if (content_pos + 1 < quote_content_raw.size() && (quote_content_raw[content_pos] == '-' || quote_content_raw[content_pos] == '*' || quote_content_raw[content_pos] == '+') && quote_content_raw[content_pos + 1] == ' ') {
@@ -714,6 +716,21 @@ namespace widget {
             content_pos = digit_end + 2;
           }
         }
+
+        // Apply relative indentation logic if this is a list item
+        if (is_list) {
+          // Pop levels that have greater indentation than current
+          while (! blockquote_list_stack.empty() && blockquote_list_stack.back().indent > leading_spaces)
+            blockquote_list_stack.pop_back();
+
+          // Add new level if this indentation is greater than current top level
+          if (blockquote_list_stack.empty() || blockquote_list_stack.back().indent < leading_spaces)
+            blockquote_list_stack.push_back({is_ordered, 0, leading_spaces});
+
+          list_level = blockquote_list_stack.size() - 1;
+        } else
+          // Not a list item - clear blockquote list stack
+          blockquote_list_stack.clear();
 
         // Extract actual content (after list marker if present)
         std::string quote_content = quote_content_raw.substr(content_pos);
@@ -753,6 +770,9 @@ namespace widget {
 
       // Check for list items (only at line start)
       if (at_line_start) {
+        // Clear blockquote list stack since we're not in a blockquote
+        blockquote_list_stack.clear();
+
         // Count leading spaces
         size_t indent_pos = pos;
         unsigned leading_spaces = 0;
@@ -761,7 +781,6 @@ namespace widget {
           ++indent_pos;
         }
 
-        unsigned current_level = leading_spaces / indent_size;
         bool is_list_item = false;
         bool is_ordered = false;
         size_t content_start = indent_pos;
@@ -805,14 +824,16 @@ namespace widget {
             paragraphs.emplace_back();
           }
 
-          // Adjust list stack to current level
-          while (list_stack.size() > current_level)
+          // Adjust list stack based on relative indentation
+          // Pop levels that have greater indentation than current
+          while (! list_stack.empty() && list_stack.back().indent > leading_spaces)
             list_stack.pop_back();
 
-          // Add new level if needed
-          if (list_stack.size() == current_level) {
-            list_stack.push_back(list_level{is_ordered, 0});
-          }
+          // Add new level if this indentation is greater than current top level
+          if (list_stack.empty() || list_stack.back().indent < leading_spaces)
+            list_stack.push_back({is_ordered, 0, leading_spaces});
+
+          unsigned current_level = list_stack.size() - 1;
 
           // Add as list item paragraph with metadata
           if (! paragraphs.back().content.empty())
@@ -855,6 +876,7 @@ namespace widget {
         if (pos < raw_markdown.size() && raw_markdown[pos] == '\n') {
           // Paragraph break - ends list context
           list_stack.clear();
+          blockquote_list_stack.clear();
           if (! current_para.empty()) {
             if (! paragraphs.back().content.empty())
               paragraphs.emplace_back();
@@ -997,7 +1019,9 @@ namespace widget {
           }
 
           prefix_width = calculate_display_width(list_prefix);
-        }
+        } else
+          // Not a list item - use blockquote prefix alone
+          list_prefix = blockquote_prefix;
 
         // Calculate available width for content
         unsigned available_width = content_width > prefix_width ? content_width - prefix_width : 1;

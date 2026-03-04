@@ -321,6 +321,19 @@ It will use the default code styling.
       box.add_markdown("   2. Another ordered subitem\n");
       box.add_markdown("3. Third ordered item\n\n");
 
+      box.add_markdown("* **Red** is ideal for:\n");
+      box.add_markdown("        + Attention-grabbing ads\n");
+      box.add_markdown("        + Stimulating sales or promotions\n");
+      box.add_markdown("        + Creating a sense of urgency\n");
+      box.add_markdown("* **Blue** is great for:\n");
+      box.add_markdown("        + Corporate branding\n");
+      box.add_markdown("        + Building trust and reliability\n");
+      box.add_markdown("        + Creating a sense of calmness\n");
+      box.add_markdown("* **Green** is perfect for:\n");
+      box.add_markdown("        + Eco-friendly branding\n");
+      box.add_markdown("        + Promoting growth and harmony\n");
+      box.add_markdown("        + Creating a sense of balance\n\n");
+
       box.add_markdown("## Long Text in Lists\n\n");
       box.add_markdown(
           "- This is a very long list item that should wrap across multiple lines "
