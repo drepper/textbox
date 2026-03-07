@@ -1252,9 +1252,9 @@ namespace widget {
   {
     auto metrics = measure_text(text, width);
 
-    if (metrics.display_width > width)
+    if (metrics.display_width >= width)
       text.resize(metrics.byte_length);
-    else if (metrics.display_width < width)
+    else
       // Pad to width
       text.append(width - metrics.display_width, ' ');
 

@@ -278,7 +278,17 @@ It will use the default code styling.
 >
 > > And nested? No problem at all.\n)*");
       box.add_markdown("> >\n");
-      box.add_markdown("> > > PS. you can **style** your text _as you want_.\n");
+      box.add_markdown("> > > PS. you can **style** your text _as you want_.\n\n");
+
+      box.add_markdown(
+          "```\n"
+          "a veeery long line.  a veeery long line.  a veeery long line.  a veeery long line."
+          "a veeery long line.  a veeery long line.  a veeery long line.  a veeery long line."
+          "a veeery long line.  a veeery long line.  a veeery long line.  a veeery long line."
+          "a veeery long line.  a veeery long line.  a veeery long line.  a veeery long line."
+          "a veeery long line.  a veeery long line.  a veeery long line.  a veeery long line.\n"
+          "```"
+      );
 
       ::std::this_thread::sleep_for(::std::chrono::seconds(1));
     }
