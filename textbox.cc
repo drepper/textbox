@@ -193,6 +193,15 @@ namespace widget {
 
   textbox::~textbox()
   {
+    close();
+  }
+
+  void textbox::close()
+  {
+    // Avoid double-close
+    if (is_closed)
+      return;
+
     // Check if widget should be cleared when empty
     if (clear_if_empty && has_been_drawn && widget_height > 0) {
       // Check if there's no content (only one empty paragraph)
@@ -215,10 +224,13 @@ namespace widget {
       }
     }
     // Otherwise, cursor is already positioned at the line after widget (from last newline)
+
+    is_closed = true;
   }
 
   void textbox::set_title(const std::string& new_title)
   {
+    assert(!is_closed && "Cannot set title on closed widget");
     title = new_title;
     if (has_been_drawn)
       render();
@@ -226,11 +238,13 @@ namespace widget {
 
   void textbox::set_clear_if_empty(bool clear_if_empty_)
   {
+    assert(!is_closed && "Cannot set clear_if_empty on closed widget");
     clear_if_empty = clear_if_empty_;
   }
 
   void textbox::add_text(const std::string& text)
   {
+    assert(!is_closed && "Cannot add text to closed widget");
     for (char ch : text) {
       if (ch == '\n') {
         // Close current paragraph if not empty, start new one
@@ -248,6 +262,7 @@ namespace widget {
 
   void textbox::add_block(const std::vector<std::string>& lines)
   {
+    assert(!is_closed && "Cannot add block to closed widget");
     std::string block_content;
     for (const auto& line : lines) {
       block_content += line;
@@ -270,6 +285,7 @@ namespace widget {
 
   void textbox::add_markdown(const std::string& markdown)
   {
+    assert(!is_closed && "Cannot add markdown to closed widget");
     raw_markdown += markdown;
     parse_markdown();
     render();
@@ -277,6 +293,7 @@ namespace widget {
 
   void textbox::set_frame(frame_type ft)
   {
+    assert(!is_closed && "Cannot set frame on closed widget");
     frame = ft;
     if (has_been_drawn)
       render();
@@ -284,6 +301,7 @@ namespace widget {
 
   void textbox::set_left_margin(unsigned margin)
   {
+    assert(!is_closed && "Cannot set left margin on closed widget");
     left_margin = margin;
     if (has_been_drawn)
       render();
@@ -291,6 +309,7 @@ namespace widget {
 
   void textbox::set_right_margin(unsigned margin)
   {
+    assert(!is_closed && "Cannot set right margin on closed widget");
     right_margin = margin;
     if (has_been_drawn)
       render();
@@ -298,6 +317,7 @@ namespace widget {
 
   void textbox::set_text_foreground(uint8_t r, uint8_t g, uint8_t b)
   {
+    assert(!is_closed && "Cannot set text foreground on closed widget");
     text_fg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -305,6 +325,7 @@ namespace widget {
 
   void textbox::set_text_background(uint8_t r, uint8_t g, uint8_t b)
   {
+    assert(!is_closed && "Cannot set text background on closed widget");
     text_bg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -312,6 +333,7 @@ namespace widget {
 
   void textbox::set_frame_foreground(uint8_t r, uint8_t g, uint8_t b)
   {
+    assert(!is_closed && "Cannot set frame foreground on closed widget");
     frame_fg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -319,6 +341,7 @@ namespace widget {
 
   void textbox::draw()
   {
+    assert(!is_closed && "Cannot draw closed widget");
     render();
   }
 
@@ -960,6 +983,7 @@ namespace widget {
 
   void textbox::render()
   {
+    assert(!is_closed && "Cannot render closed widget");
     auto [term_width, term_height] = get_terminal_dimensions();
 
     // Calculate minimum width needed

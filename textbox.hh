@@ -29,6 +29,9 @@ namespace widget {
     /// Destructor - moves cursor to line after widget
     ~textbox();
 
+    /// Close the widget and optionally clear if empty
+    void close();
+
     /// Set widget title
     /// @param new_title New title text
     void set_title(const std::string& new_title);
@@ -134,6 +137,9 @@ namespace widget {
 
     // Whether to clear widget on destruction if empty (default true)
     bool clear_if_empty = true;
+
+    // Track whether widget has been closed
+    bool is_closed = false;
 
     /// Render the widget to the terminal
     void render();
