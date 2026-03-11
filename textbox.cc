@@ -193,8 +193,28 @@ namespace widget {
 
   textbox::~textbox()
   {
-    // Cursor is already positioned at the line after widget (from last newline)
-    // No action needed
+    // Check if widget should be cleared when empty
+    if (clear_if_empty && has_been_drawn && widget_height > 0) {
+      // Check if there's no content (only one empty paragraph)
+      bool is_empty = paragraphs.size() == 1 && paragraphs[0].content.empty();
+
+      if (is_empty) {
+        int fd = term_info.get_fd();
+
+        // Move cursor back to start of widget
+        move_cursor_up(widget_height);
+        write_str(fd, "\r"); // Move to column 1
+
+        // Clear each line of the widget
+        for (unsigned i = 0; i < widget_height; ++i)
+          write_str(fd, "\e[2K\n"); // Clear entire line and move down
+
+        // Move cursor back to the beginning of the first line
+        move_cursor_up(widget_height);
+        write_str(fd, "\r");
+      }
+    }
+    // Otherwise, cursor is already positioned at the line after widget (from last newline)
   }
 
   void textbox::set_title(const std::string& new_title)
@@ -202,6 +222,11 @@ namespace widget {
     title = new_title;
     if (has_been_drawn)
       render();
+  }
+
+  void textbox::set_clear_if_empty(bool clear_if_empty_)
+  {
+    clear_if_empty = clear_if_empty_;
   }
 
   void textbox::add_text(const std::string& text)

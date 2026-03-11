@@ -33,6 +33,10 @@ namespace widget {
     /// @param new_title New title text
     void set_title(const std::string& new_title);
 
+    /// Set whether to clear widget on destruction if empty
+    /// @param clear_if_empty If true (default), clear widget lines if no content on destruction
+    void set_clear_if_empty(bool clear_if_empty);
+
     /// Add text content with automatic paragraph wrapping
     /// @param text Text to add (newlines create paragraph breaks)
     void add_text(const std::string& text);
@@ -127,6 +131,9 @@ namespace widget {
 
     // Track whether widget has been drawn
     bool has_been_drawn = false;
+
+    // Whether to clear widget on destruction if empty (default true)
+    bool clear_if_empty = true;
 
     /// Render the widget to the terminal
     void render();
