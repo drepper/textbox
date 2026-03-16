@@ -395,33 +395,39 @@ namespace widget {
       // Check for bold **...**
       if (pos_in + 1 < text.size() && ch == '*' && text[pos_in + 1] == '*') {
         size_t end = text.find("**", pos_in + 2);
-        // Deliberately use end even if it is npos.
-        std::string bold_text = text.substr(pos_in + 2, end - pos_in - 2);
-        return {"\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[0m", end + 2};
+        if (end != std::string::npos) {
+          std::string bold_text = text.substr(pos_in + 2, end - pos_in - 2);
+          return {"\e[1m" + color_escape(bold_fg, true) + bold_text + "\e[0m", end + 2};
+        }
+        // Bold pattern found but no closing **, treat both * as literal text
+        return {"**", pos_in + 2};
       }
 
       // Check for italic *...*
       if (ch == '*') {
         size_t end = text.find('*', pos_in + 1);
-        // Deliberately use end even if it is npos.
-        std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
-        return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+        if (end != std::string::npos) {
+          std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
+          return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+        }
       }
 
       // Check for italic _..._
       if (ch == '_') {
         size_t end = text.find('_', pos_in + 1);
-        // Deliberately use end even if it is npos.
-        std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
-        return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+        if (end != std::string::npos) {
+          std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
+          return {"\e[3m" + color_escape(italic_fg, true) + italic_text + "\e[0m", end + 1};
+        }
       }
 
       // Check for strikethrough ~~...~~
       if (pos_in + 1 < text.size() && ch == '~' && text[pos_in + 1] == '~') {
         size_t end = text.find("~~", pos_in + 2);
-        // Deliberately use end even if it is npos.
-        std::string strike_text = text.substr(pos_in + 2, end - pos_in - 2);
-        return {"\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[0m", end + 2};
+        if (end != std::string::npos) {
+          std::string strike_text = text.substr(pos_in + 2, end - pos_in - 2);
+          return {"\e[9m" + color_escape(strikethrough_fg, true) + strike_text + "\e[0m", end + 2};
+        }
       }
 
       return {"", 0};
