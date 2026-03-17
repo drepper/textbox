@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string_view>
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/uio.h>
 
@@ -1009,6 +1010,10 @@ namespace widget {
 
     int fd = term_info.get_fd();
 
+    // For the remainder of this function we need the file descriptor to be blocking.
+    int oldfl = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, oldfl & ~O_NONBLOCK);
+
     // Use different bullets for different levels
     static constexpr const std::array bullets{
       "\N{BLACK CIRCLE}", // ● level 0
@@ -1135,7 +1140,7 @@ namespace widget {
     if (frame != frame_type::none)
       new_height += 2; // Top and bottom frame
 
-    // NOW move cursor back to start of widget (using OLD height)
+    // Now move cursor back to start of widget (using OLD height)
     if (has_been_drawn) {
       move_cursor_up(widget_height);
       write_str(fd, "\r"); // Move to column 1
@@ -1250,6 +1255,9 @@ namespace widget {
 
     // Mark as drawn
     has_been_drawn = true;
+
+    // Reset flags.
+    fcntl(fd, F_SETFL, oldfl);
   }
 
   unsigned textbox::calculate_display_width(const std::string& text) const
