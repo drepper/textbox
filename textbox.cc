@@ -231,7 +231,7 @@ namespace widget {
 
   void textbox::set_title(const std::string& new_title)
   {
-    assert(!is_closed && "Cannot set title on closed widget");
+    assert(! is_closed && "Cannot set title on closed widget");
     title = new_title;
     if (has_been_drawn)
       render();
@@ -239,13 +239,18 @@ namespace widget {
 
   void textbox::set_clear_if_empty(bool clear_if_empty_)
   {
-    assert(!is_closed && "Cannot set clear_if_empty on closed widget");
+    assert(! is_closed && "Cannot set clear_if_empty on closed widget");
     clear_if_empty = clear_if_empty_;
+  }
+
+  void textbox::set_min_lines_remaining(unsigned lines)
+  {
+    min_lines_remaining = lines;
   }
 
   void textbox::add_text(const std::string& text)
   {
-    assert(!is_closed && "Cannot add text to closed widget");
+    assert(! is_closed && "Cannot add text to closed widget");
     for (char ch : text) {
       if (ch == '\n') {
         // Close current paragraph if not empty, start new one
@@ -263,7 +268,7 @@ namespace widget {
 
   void textbox::add_block(const std::vector<std::string>& lines)
   {
-    assert(!is_closed && "Cannot add block to closed widget");
+    assert(! is_closed && "Cannot add block to closed widget");
     std::string block_content;
     for (const auto& line : lines) {
       block_content += line;
@@ -286,7 +291,7 @@ namespace widget {
 
   void textbox::add_markdown(const std::string& markdown)
   {
-    assert(!is_closed && "Cannot add markdown to closed widget");
+    assert(! is_closed && "Cannot add markdown to closed widget");
     raw_markdown += markdown;
     parse_markdown();
     render();
@@ -294,7 +299,7 @@ namespace widget {
 
   void textbox::set_frame(frame_type ft)
   {
-    assert(!is_closed && "Cannot set frame on closed widget");
+    assert(! is_closed && "Cannot set frame on closed widget");
     frame = ft;
     if (has_been_drawn)
       render();
@@ -302,7 +307,7 @@ namespace widget {
 
   void textbox::set_left_margin(unsigned margin)
   {
-    assert(!is_closed && "Cannot set left margin on closed widget");
+    assert(! is_closed && "Cannot set left margin on closed widget");
     left_margin = margin;
     if (has_been_drawn)
       render();
@@ -310,7 +315,7 @@ namespace widget {
 
   void textbox::set_right_margin(unsigned margin)
   {
-    assert(!is_closed && "Cannot set right margin on closed widget");
+    assert(! is_closed && "Cannot set right margin on closed widget");
     right_margin = margin;
     if (has_been_drawn)
       render();
@@ -318,7 +323,7 @@ namespace widget {
 
   void textbox::set_text_foreground(uint8_t r, uint8_t g, uint8_t b)
   {
-    assert(!is_closed && "Cannot set text foreground on closed widget");
+    assert(! is_closed && "Cannot set text foreground on closed widget");
     text_fg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -326,7 +331,7 @@ namespace widget {
 
   void textbox::set_text_background(uint8_t r, uint8_t g, uint8_t b)
   {
-    assert(!is_closed && "Cannot set text background on closed widget");
+    assert(! is_closed && "Cannot set text background on closed widget");
     text_bg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -334,7 +339,7 @@ namespace widget {
 
   void textbox::set_frame_foreground(uint8_t r, uint8_t g, uint8_t b)
   {
-    assert(!is_closed && "Cannot set frame foreground on closed widget");
+    assert(! is_closed && "Cannot set frame foreground on closed widget");
     frame_fg = {r, g, b};
     if (has_been_drawn)
       render();
@@ -342,7 +347,7 @@ namespace widget {
 
   void textbox::draw()
   {
-    assert(!is_closed && "Cannot draw closed widget");
+    assert(! is_closed && "Cannot draw closed widget");
     render();
   }
 
@@ -990,7 +995,7 @@ namespace widget {
 
   void textbox::render()
   {
-    assert(!is_closed && "Cannot render closed widget");
+    assert(! is_closed && "Cannot render closed widget");
     auto [term_width, term_height] = get_terminal_dimensions();
 
     // Calculate minimum width needed
@@ -1140,6 +1145,70 @@ namespace widget {
     if (frame != frame_type::none)
       new_height += 2; // Top and bottom frame
 
+    // Check if widget would exceed available screen space
+    bool lines_were_discarded = false;
+    if (term_height > min_lines_remaining && new_height > term_height - min_lines_remaining) {
+      // Truncate to show only the last lines
+      unsigned available_lines = term_height - min_lines_remaining;
+      unsigned content_lines = available_lines;
+      if (frame != frame_type::none)
+        content_lines -= 2; // Account for frame
+
+      if (content_lines < all_lines.size()) {
+        lines_were_discarded = true;
+
+        // Collect CSI sequences from discarded lines to preserve formatting context
+        std::string accumulated_csi;
+        size_t last_reset_pos = std::string::npos;
+
+        // Search backward through discarded lines for CSI sequences
+        for (auto it = all_lines.begin(); it != all_lines.end() - content_lines; ++it) {
+          const auto& line = *it;
+          size_t pos = 0;
+
+          while (pos < line.size()) {
+            // Look for CSI sequence: ESC [ ... m
+            if (pos + 1 < line.size() && line[pos] == '\e' && line[pos + 1] == '[') {
+              size_t csi_start = pos;
+              pos += 2;
+              size_t params_start = pos;
+
+              // Find the 'm' terminator
+              while (pos < line.size() && line[pos] != 'm')
+                ++pos;
+
+              if (pos < line.size()) {
+                // Found complete CSI m sequence
+                std::string_view params{line.data() + params_start, pos - params_start};
+
+                // Check if this is a reset sequence (0m or just m)
+                if (params.empty() || params == "0") {
+                  // Reset all attributes - mark position and clear accumulated
+                  last_reset_pos = csi_start;
+                  accumulated_csi.clear();
+                } else
+                  // Accumulate non-reset CSI m sequences after last reset
+                  if (last_reset_pos == std::string::npos || csi_start > last_reset_pos)
+                    accumulated_csi.append(line.substr(csi_start, pos - csi_start + 1));
+
+                ++pos; // Skip 'm'
+              }
+            } else
+              ++pos;
+          }
+        }
+
+        // Keep only the last content_lines
+        all_lines.erase(all_lines.begin(), all_lines.end() - content_lines);
+
+        // Prepend accumulated CSI sequences to first remaining line if any were found
+        if (! accumulated_csi.empty() && ! all_lines.empty())
+          all_lines[0] = accumulated_csi + all_lines[0];
+
+        new_height = available_lines;
+      }
+    }
+
     // Now move cursor back to start of widget (using OLD height)
     if (has_been_drawn) {
       move_cursor_up(widget_height);
@@ -1204,8 +1273,26 @@ namespace widget {
       tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT VERTICAL}\e[0m" : "\N{LEFT HALF BLOCK}\e[0m");
       tmpstr.append(clear_eol);
       tmpstr.append("\n");
+
+      std::string first_line_frame;
+      if (lines_were_discarded && is_line) {
+        first_line_frame = left_margin_spaces;
+        first_line_frame.append(frame_color);
+        first_line_frame.append("\N{BOX DRAWINGS LIGHT DOUBLE DASH VERTICAL}");
+        first_line_frame.append(bg_color);
+        first_line_frame.append(content_spaces);
+        first_line_frame.append("\e[0m");
+        first_line_frame.append(frame_color);
+        first_line_frame.append("\N{BOX DRAWINGS LIGHT DOUBLE DASH VERTICAL}\e[0m");
+        first_line_frame.append(clear_eol);
+        first_line_frame.append("\n");
+      }
       for (size_t i = 0; i < all_lines.size(); ++i)
-        write_str(fd, tmpstr);
+        // Use dashed vertical for first line if content was discarded and frame is line type
+        if (i < 5 && lines_were_discarded && is_line)
+          write_str(fd, first_line_frame);
+        else
+          write_str(fd, tmpstr);
 
       // Draw bottom frame
       tmpstr = left_margin_spaces;

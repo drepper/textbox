@@ -85,6 +85,10 @@ namespace widget {
     /// Force widget to render immediately
     void draw();
 
+    /// Set minimum number of lines that must remain available on screen
+    /// @param lines Minimum lines to keep available (default 5)
+    void set_min_lines_remaining(unsigned lines);
+
   private:
     /// Paragraph data structure
     struct paragraph {
@@ -140,6 +144,9 @@ namespace widget {
 
     // Track whether widget has been closed
     bool is_closed = false;
+
+    // Minimum number of lines to keep available on screen (default 5)
+    unsigned min_lines_remaining = 5;
 
     /// Render the widget to the terminal
     void render();
