@@ -829,6 +829,170 @@ namespace widget {
         continue;
       }
 
+      // Check for table (only at line start)
+      if (at_line_start && raw_markdown[pos] == '|') {
+        // Try to parse a table
+        std::vector<std::vector<std::string>> table_rows;
+        std::vector<char> alignment;
+        size_t table_start = pos;
+        bool is_valid_table = false;
+
+        // Helper to parse a table row
+        auto parse_table_row = [&](size_t start_pos) -> std::pair<std::vector<std::string>, size_t> {
+          std::vector<std::string> cells;
+          size_t row_pos = start_pos;
+
+          // Skip leading |
+          if (row_pos < raw_markdown.size() && raw_markdown[row_pos] == '|')
+            ++row_pos;
+
+          // Find end of line
+          size_t line_end = raw_markdown.find('\n', row_pos);
+          if (line_end == std::string::npos)
+            line_end = raw_markdown.size();
+
+          std::string row_content = raw_markdown.substr(row_pos, line_end - row_pos);
+
+          // Split by |
+          size_t cell_start = 0;
+          for (size_t i = 0; i <= row_content.size(); ++i)
+            if (i == row_content.size() || row_content[i] == '|') {
+              std::string cell = row_content.substr(cell_start, i - cell_start);
+
+              // Trim whitespace
+              size_t first = cell.find_first_not_of(" \t");
+              size_t last = cell.find_last_not_of(" \t");
+              if (first != std::string::npos)
+                cell = cell.substr(first, last - first + 1);
+              else
+                cell.clear();
+
+              cells.push_back(process_inline_formatting(cell));
+              cell_start = i + 1;
+            }
+
+          // Remove trailing empty cell if row ends with |
+          if (! cells.empty() && cells.back().empty())
+            cells.pop_back();
+
+          return {cells, line_end};
+        };
+
+        // Parse header row
+        auto [header_cells, header_end] = parse_table_row(table_start);
+
+        if (! header_cells.empty() && header_end < raw_markdown.size()) {
+          // Check for separator row
+          size_t sep_pos = header_end;
+          if (raw_markdown[sep_pos] == '\n')
+            ++sep_pos;
+
+          if (sep_pos < raw_markdown.size() && raw_markdown[sep_pos] == '|') {
+            // Parse separator row to determine alignment
+            ++sep_pos; // Skip leading |
+
+            size_t sep_line_end = raw_markdown.find('\n', sep_pos);
+            if (sep_line_end == std::string::npos)
+              sep_line_end = raw_markdown.size();
+
+            std::string sep_content = raw_markdown.substr(sep_pos, sep_line_end - sep_pos);
+
+            // Parse alignment from separator
+            size_t cell_start = 0;
+            for (size_t i = 0; i <= sep_content.size(); ++i) {
+              if (i == sep_content.size() || sep_content[i] == '|') {
+                std::string sep_cell = sep_content.substr(cell_start, i - cell_start);
+
+                // Trim whitespace
+                size_t first = sep_cell.find_first_not_of(" \t");
+                size_t last = sep_cell.find_last_not_of(" \t");
+                if (first != std::string::npos)
+                  sep_cell = sep_cell.substr(first, last - first + 1);
+
+                // Check for valid separator (must contain at least one -)
+                bool has_dash = sep_cell.find('-') != std::string::npos;
+                if (! has_dash && ! sep_cell.empty()) {
+                  alignment.clear();
+                  break;
+                }
+
+                // Determine alignment
+                char align = 'l'; // default left
+                if (! sep_cell.empty()) {
+                  bool starts_colon = sep_cell[0] == ':';
+                  bool ends_colon = sep_cell.back() == ':';
+
+                  if (starts_colon && ends_colon)
+                    align = 'c'; // center
+                  else if (ends_colon)
+                    align = 'r'; // right
+                  else
+                    align = 'l'; // left
+                }
+
+                alignment.push_back(align);
+                cell_start = i + 1;
+              }
+            }
+
+            // Remove trailing empty alignment if separator ends with |
+            if (! alignment.empty() && alignment.size() > header_cells.size())
+              alignment.pop_back();
+
+            // Valid table if we have alignment info
+            if (alignment.size() == header_cells.size()) {
+              is_valid_table = true;
+              table_rows.push_back(header_cells);
+
+              // Parse data rows
+              size_t data_pos = sep_line_end;
+              if (data_pos < raw_markdown.size() && raw_markdown[data_pos] == '\n')
+                ++data_pos;
+
+              while (data_pos < raw_markdown.size() && raw_markdown[data_pos] == '|') {
+                auto [row_cells, row_end] = parse_table_row(data_pos);
+
+                // Ensure row has same number of columns as header
+                while (row_cells.size() < header_cells.size())
+                  row_cells.push_back("");
+                if (row_cells.size() > header_cells.size())
+                  row_cells.resize(header_cells.size());
+
+                table_rows.push_back(row_cells);
+
+                data_pos = row_end;
+                if (data_pos < raw_markdown.size() && raw_markdown[data_pos] == '\n')
+                  ++data_pos;
+              }
+
+              pos = data_pos;
+            }
+          }
+        }
+
+        if (is_valid_table) {
+          // Save any pending paragraph
+          if (! current_para.empty()) {
+            if (! paragraphs.back().content.empty())
+              paragraphs.emplace_back();
+            paragraphs.back().content = current_para;
+            current_para.clear();
+            paragraphs.emplace_back();
+          }
+
+          // Add table paragraph
+          if (! paragraphs.back().content.empty())
+            paragraphs.emplace_back();
+          paragraphs.back().is_table = true;
+          paragraphs.back().is_reflow = false;
+          paragraphs.back().table_data = std::move(table_rows);
+          paragraphs.back().table_alignment = std::move(alignment);
+
+          at_line_start = true;
+          continue;
+        }
+      }
+
       // Check for list items (only at line start)
       if (at_line_start) {
         // Clear blockquote list stack since we're not in a blockquote
@@ -1047,7 +1211,196 @@ namespace widget {
       if (para.content.empty())
         continue;
 
-      if (para.is_blockquote || para.is_list_item || para.is_reflow) {
+      if (para.is_table) {
+        // Render table
+        const auto& table_data = para.table_data;
+        const auto& alignment = para.table_alignment;
+
+        if (table_data.empty() || alignment.empty())
+          continue;
+
+        unsigned num_cols = alignment.size();
+
+        // Calculate minimum width needed for each column
+        std::vector<unsigned> col_min_widths(num_cols, 0);
+        std::vector<std::vector<std::vector<std::string>>> wrapped_cells(table_data.size());
+
+        for (unsigned col = 0; col < num_cols; ++col)
+          for (size_t row = 0; row < table_data.size(); ++row) {
+            unsigned cell_width = calculate_display_width(table_data[row][col]);
+            if (cell_width > col_min_widths[col])
+              col_min_widths[col] = cell_width;
+          }
+
+        // Calculate total width needed (including borders)
+        unsigned total_min_width = 1; // Starting |
+        for (unsigned col = 0; col < num_cols; ++col)
+          total_min_width += col_min_widths[col] + 3; // content + " | "
+
+        // If table is too wide, try to distribute available width proportionally
+        std::vector<unsigned> col_widths = col_min_widths;
+
+        if (total_min_width > content_width) {
+          // Calculate available width for content (minus borders)
+          unsigned available = content_width > (num_cols * 3 + 1) ? content_width - (num_cols * 3 + 1) : num_cols;
+
+          // Distribute width proportionally, but ensure at least 3 chars per column
+          unsigned total_requested = 0;
+          for (unsigned w : col_min_widths)
+            total_requested += w;
+
+          if (total_requested > 0)
+            for (unsigned col = 0; col < num_cols; ++col)
+              col_widths[col] = std::max(3u, (col_min_widths[col] * available) / total_requested);
+
+          // If still too wide, show only columns that fit
+          unsigned current_width = 1;
+          unsigned visible_cols = 0;
+          for (unsigned col = 0; col < num_cols; ++col) {
+            unsigned col_width_with_border = col_widths[col] + 3;
+            if (current_width + col_width_with_border <= content_width) {
+              current_width += col_width_with_border;
+              ++visible_cols;
+            } else
+              break;
+          }
+
+          if (visible_cols < num_cols) {
+            num_cols = visible_cols;
+            col_widths.resize(num_cols);
+          }
+        }
+
+        // Wrap cell content to fit column widths
+        for (size_t row = 0; row < table_data.size(); ++row) {
+          wrapped_cells[row].resize(num_cols);
+          for (unsigned col = 0; col < num_cols; ++col) {
+            const std::string& cell_text = table_data[row][col];
+            std::vector<std::string> lines;
+
+            // Split by spaces and wrap
+            std::vector<std::string> words;
+            size_t word_start = 0;
+            for (size_t j = 0; j <= cell_text.size(); ++j) {
+              if (j == cell_text.size() || cell_text[j] == ' ') {
+                if (j > word_start)
+                  words.push_back(cell_text.substr(word_start, j - word_start));
+                word_start = j + 1;
+              }
+            }
+
+            // Build lines from words
+            std::string current_line;
+            for (const auto& word : words) {
+              unsigned word_width = calculate_display_width(word);
+              unsigned current_width = calculate_display_width(current_line);
+
+              if (current_line.empty())
+                current_line = word;
+              else if (current_width + 1 + word_width <= col_widths[col])
+                current_line += " " + word;
+              else {
+                lines.push_back(current_line);
+                current_line = word;
+              }
+            }
+
+            if (! current_line.empty())
+              lines.push_back(current_line);
+
+            if (lines.empty())
+              lines.push_back("");
+
+            wrapped_cells[row][col] = std::move(lines);
+          }
+        }
+
+        // Helper to pad text according to alignment
+        auto pad_cell = [&](const std::string& text, unsigned width, char align) -> std::string {
+          unsigned text_width = calculate_display_width(text);
+          if (text_width >= width)
+            return text;
+
+          unsigned padding = width - text_width;
+          if (align == 'c') {
+            unsigned left_pad = padding / 2;
+            unsigned right_pad = padding - left_pad;
+            return std::string(left_pad, ' ') + text + std::string(right_pad, ' ');
+          } else if (align == 'r')
+            return std::string(padding, ' ') + text;
+          else
+            return text + std::string(padding, ' ');
+        };
+
+        // Box drawing characters
+        static constexpr const char* horiz = "\N{BOX DRAWINGS LIGHT HORIZONTAL}";
+        static constexpr const char* vert = "\N{BOX DRAWINGS LIGHT VERTICAL}";
+        static constexpr const char* down_right = "\N{BOX DRAWINGS LIGHT DOWN AND RIGHT}";
+        static constexpr const char* down_left = "\N{BOX DRAWINGS LIGHT DOWN AND LEFT}";
+        static constexpr const char* down_horiz = "\N{BOX DRAWINGS LIGHT DOWN AND HORIZONTAL}";
+        static constexpr const char* up_right = "\N{BOX DRAWINGS LIGHT UP AND RIGHT}";
+        static constexpr const char* up_left = "\N{BOX DRAWINGS LIGHT UP AND LEFT}";
+        static constexpr const char* up_horiz = "\N{BOX DRAWINGS LIGHT UP AND HORIZONTAL}";
+        static constexpr const char* vert_right = "\N{BOX DRAWINGS LIGHT VERTICAL AND RIGHT}";
+        static constexpr const char* vert_left = "\N{BOX DRAWINGS LIGHT VERTICAL AND LEFT}";
+        static constexpr const char* vert_horiz = "\N{BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL}";
+
+        // Render top border
+        std::string top_border = down_right;
+        for (unsigned col = 0; col < num_cols; ++col) {
+          for (unsigned j = 0; j < col_widths[col] + 2; ++j)
+            top_border += horiz;
+          if (col + 1 < num_cols)
+            top_border += down_horiz;
+        }
+        top_border += down_left;
+        all_lines.push_back(top_border);
+
+        // Render each row
+        for (size_t row = 0; row < table_data.size(); ++row) {
+          // Calculate max lines needed for this row
+          unsigned max_lines = 1;
+          for (unsigned col = 0; col < num_cols; ++col)
+            max_lines = std::max(max_lines, static_cast<unsigned>(wrapped_cells[row][col].size()));
+
+          // Render each line of the row
+          for (unsigned line_idx = 0; line_idx < max_lines; ++line_idx) {
+            std::string line = std::string(vert) + " ";
+            for (unsigned col = 0; col < num_cols; ++col) {
+              const auto& cell_lines = wrapped_cells[row][col];
+              std::string cell_text = line_idx < cell_lines.size() ? cell_lines[line_idx] : "";
+              line += pad_cell(cell_text, col_widths[col], alignment[col]);
+              line += std::string(" ") + vert + " ";
+            }
+            all_lines.push_back(line);
+          }
+
+          // Render separator after header (row 0) or between rows
+          if (row == 0) {
+            // Header separator
+            std::string sep = vert_right;
+            for (unsigned col = 0; col < num_cols; ++col) {
+              for (unsigned j = 0; j < col_widths[col] + 2; ++j)
+                sep += horiz;
+              if (col + 1 < num_cols)
+                sep += vert_horiz;
+            }
+            sep += vert_left;
+            all_lines.push_back(sep);
+          }
+        }
+
+        // Render bottom border
+        std::string bottom_border = up_right;
+        for (unsigned col = 0; col < num_cols; ++col) {
+          for (unsigned j = 0; j < col_widths[col] + 2; ++j)
+            bottom_border += horiz;
+          if (col + 1 < num_cols)
+            bottom_border += up_horiz;
+        }
+        bottom_border += up_left;
+        all_lines.push_back(bottom_border);
+      } else if (para.is_blockquote || para.is_list_item || para.is_reflow) {
         // Blockquote - wrap with indentation and quote markers
         unsigned prefix_width = para.blockquote_level * 2;
         std::string blockquote_prefix;

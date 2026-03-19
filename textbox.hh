@@ -99,6 +99,9 @@ namespace widget {
       unsigned list_level = 0;       ///< Nesting level (0 = top level)
       bool is_blockquote = false;    ///< True if this is a blockquote
       unsigned blockquote_level = 0; ///< Blockquote nesting level (0 = not a blockquote)
+      bool is_table = false;         ///< True if this is a table
+      std::vector<std::vector<std::string>> table_data{}; ///< Table cells (rows x cols)
+      std::vector<char> table_alignment{}; ///< Column alignment ('l', 'c', 'r')
     };
 
     const terminal::info& term_info;

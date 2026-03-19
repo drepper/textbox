@@ -89,4 +89,8 @@ if(PROJECT_IS_TOP_LEVEL)
   add_executable(test_complete_features test_complete_features.cc config.hh)
   target_include_directories(test_complete_features PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries(test_complete_features PUBLIC textbox)
+
+  add_executable(test_table test_table.cc config.hh)
+  target_include_directories(test_table PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(test_table PUBLIC textbox)
 endif()
