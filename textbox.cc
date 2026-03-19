@@ -838,7 +838,7 @@ namespace widget {
         bool is_valid_table = false;
 
         // Helper to parse a table row
-        auto parse_table_row = [&](size_t start_pos) -> std::pair<std::vector<std::string>, size_t> {
+        auto parse_table_row = [&](size_t start_pos, bool is_header = false) -> std::pair<std::vector<std::string>, size_t> {
           std::vector<std::string> cells;
           size_t row_pos = start_pos;
 
@@ -867,6 +867,18 @@ namespace widget {
               else
                 cell.clear();
 
+              // For header cells, make bold unless already has markup
+              if (is_header && ! cell.empty()) {
+                bool has_markup = cell.find("**") != std::string::npos ||
+                                  cell.find('*') != std::string::npos ||
+                                  cell.find('_') != std::string::npos ||
+                                  cell.find('`') != std::string::npos ||
+                                  cell.find("~~") != std::string::npos;
+
+                if (! has_markup)
+                  cell = "**" + cell + "**";
+              }
+
               cells.push_back(process_inline_formatting(cell));
               cell_start = i + 1;
             }
@@ -879,7 +891,7 @@ namespace widget {
         };
 
         // Parse header row
-        auto [header_cells, header_end] = parse_table_row(table_start);
+        auto [header_cells, header_end] = parse_table_row(table_start, true);
 
         if (! header_cells.empty() && header_end < raw_markdown.size()) {
           // Check for separator row

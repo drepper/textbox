@@ -13,7 +13,7 @@ int main()
   std::string markdown_table = R"(
 # Table Example
 
-Here is a simple table:
+Simple table with auto-bold headers:
 
 | Name | Age | City |
 |------|----:|:----:|
@@ -21,10 +21,10 @@ Here is a simple table:
 | Bob | 25 | LA |
 | Charlie | 35 | Chicago |
 
-And here's a table with longer content:
+Table with custom header formatting:
 
-| Feature | Description | Status |
-|:--------|:------------|:------:|
+| *Feature* | `Description` | **Status** |
+|:----------|:--------------|:----------:|
 | Tables | Support for GitHub-style markdown tables | ✓ |
 | Line breaking | Automatic line breaking at word boundaries | ✓ |
 | Alignment | Left, center, and right alignment support | ✓ |
