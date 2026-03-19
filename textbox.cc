@@ -869,11 +869,7 @@ namespace widget {
 
               // For header cells, make bold unless already has markup
               if (is_header && ! cell.empty()) {
-                bool has_markup = cell.find("**") != std::string::npos ||
-                                  cell.find('*') != std::string::npos ||
-                                  cell.find('_') != std::string::npos ||
-                                  cell.find('`') != std::string::npos ||
-                                  cell.find("~~") != std::string::npos;
+                bool has_markup = cell.find("**") != std::string::npos || cell.find('*') != std::string::npos || cell.find('_') != std::string::npos || cell.find('`') != std::string::npos || cell.find("~~") != std::string::npos;
 
                 if (! has_markup)
                   cell = "**" + cell + "**";
@@ -1193,8 +1189,8 @@ namespace widget {
     int fd = term_info.get_fd();
 
     // For the remainder of this function we need the file descriptor to be blocking.
-    int oldfl = fcntl(fd, F_GETFL);
-    fcntl(fd, F_SETFL, oldfl & ~O_NONBLOCK);
+    int oldfl = ::fcntl(fd, F_GETFL);
+    ::fcntl(fd, F_SETFL, oldfl & ~O_NONBLOCK);
 
     // Use different bullets for different levels
     static constexpr const std::array bullets{
@@ -1710,7 +1706,7 @@ namespace widget {
     has_been_drawn = true;
 
     // Reset flags.
-    fcntl(fd, F_SETFL, oldfl);
+    ::fcntl(fd, F_SETFL, oldfl);
   }
 
   unsigned textbox::calculate_display_width(const std::string& text) const
