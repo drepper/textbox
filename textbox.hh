@@ -12,8 +12,7 @@
 namespace widget {
 
   /// Text widget for terminal display with frame and formatting support
-  class textbox {
-  public:
+  struct textbox {
     /// Frame rendering style
     enum class frame_type {
       none,      ///< No frame
@@ -93,15 +92,15 @@ namespace widget {
     /// Paragraph data structure
     struct paragraph {
       std::string content{};
-      bool is_reflow = true;         ///< True for reflowable, false for fixed
-      bool is_list_item = false;     ///< True if this is a list item
-      bool is_ordered = false;       ///< True for ordered list, false for unordered
-      unsigned list_level = 0;       ///< Nesting level (0 = top level)
-      bool is_blockquote = false;    ///< True if this is a blockquote
-      unsigned blockquote_level = 0; ///< Blockquote nesting level (0 = not a blockquote)
-      bool is_table = false;         ///< True if this is a table
+      bool is_reflow = true;                              ///< True for reflowable, false for fixed
+      bool is_list_item = false;                          ///< True if this is a list item
+      bool is_ordered = false;                            ///< True for ordered list, false for unordered
+      unsigned list_level = 0;                            ///< Nesting level (0 = top level)
+      bool is_blockquote = false;                         ///< True if this is a blockquote
+      unsigned blockquote_level = 0;                      ///< Blockquote nesting level (0 = not a blockquote)
+      bool is_table = false;                              ///< True if this is a table
       std::vector<std::vector<std::string>> table_data{}; ///< Table cells (rows x cols)
-      std::vector<char> table_alignment{}; ///< Column alignment ('l', 'c', 'r')
+      std::vector<char> table_alignment{};                ///< Column alignment ('l', 'c', 'r')
     };
 
     const terminal::info& term_info;
