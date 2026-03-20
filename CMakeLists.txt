@@ -93,4 +93,8 @@ if(PROJECT_IS_TOP_LEVEL)
   add_executable(test_table test_table.cc config.hh)
   target_include_directories(test_table PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries(test_table PUBLIC textbox)
+
+  add_executable(test_udiff test_udiff.cc config.hh)
+  target_include_directories(test_udiff PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(test_udiff PUBLIC textbox)
 endif()

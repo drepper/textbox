@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include <fcntl.h>
+#include <paths.h>
 #include <unistd.h>
 #include <sys/uio.h>
 
@@ -296,6 +297,269 @@ namespace widget {
     raw_markdown += markdown;
     parse_markdown();
     render();
+  }
+
+  void textbox::add_udiff(const std::string& udiff)
+  {
+    assert(! is_closed && "Cannot add udiff to closed widget");
+
+    if (udiff.empty())
+      return;
+
+    // Colors for diff rendering
+    terminal::info::color line_num_fg{64, 64, 64};   // Dark grey for line numbers
+    terminal::info::color removed_num_fg{133, 0, 0}; // 0x850000 for removed line numbers
+    terminal::info::color added_num_fg{0, 135, 0};   // 0x008700 for added line numbers
+    terminal::info::color removed_bg{61, 1, 0};      // 0x3d0100 for removed line background
+    terminal::info::color added_bg{2, 40, 0};        // 0x022800 for added line background
+
+    std::vector<std::string> diff_lines;
+    std::istringstream stream{udiff};
+    std::string line;
+
+    std::string language;
+    std::string filename;
+
+    // Current line numbers in old and new files
+    unsigned old_line = 0;
+    unsigned new_line = 0;
+
+    // Track maximum line numbers to calculate column width
+    unsigned max_old_line = 0;
+    unsigned max_new_line = 0;
+
+    // First pass: parse diff to find max line numbers and collect content
+    struct diff_line_info {
+      char prefix;
+      std::string content;
+      unsigned old_num;
+      unsigned new_num;
+    };
+    std::vector<diff_line_info> parsed_lines;
+
+    // Helper to highlight code content
+    auto highlight_content = [&](const std::string& content) -> std::string {
+      if (language.empty() || content.empty())
+        return content;
+
+      auto srchilite = find_source_highlight_data(language);
+      if (! srchilite)
+        return content;
+
+      try {
+        srchilite::SourceHighlight highlighter{"esc256.outlang"};
+        std::istringstream input{content};
+        std::stringstream output;
+        highlighter.highlight(input, output, srchilite->fname);
+
+        if (! output.eof()) {
+          output.seekg(0);
+          std::string highlighted_text;
+          std::getline(output, highlighted_text);
+
+          // Remove any remaining newlines that might cause layout issues
+          highlighted_text.erase(std::remove(highlighted_text.begin(), highlighted_text.end(), '\n'), highlighted_text.end());
+          highlighted_text.erase(std::remove(highlighted_text.begin(), highlighted_text.end(), '\r'), highlighted_text.end());
+
+          // Replace reset sequences to preserve background
+          std::string fg_escape = color_escape(text_fg, true);
+          std::string replacement = fg_escape;
+          size_t pos = 0;
+          while ((pos = highlighted_text.find("\e[0m", pos)) != std::string::npos) {
+            highlighted_text.replace(pos, 4, replacement);
+            pos += replacement.length();
+          }
+          pos = 0;
+          while ((pos = highlighted_text.find("\e[m", pos)) != std::string::npos) {
+            highlighted_text.replace(pos, 3, replacement);
+            pos += replacement.length();
+          }
+          pos = 0;
+          while ((pos = highlighted_text.find("\e[00;38;", pos)) != std::string::npos) {
+            highlighted_text.erase(pos + 2, 3);
+            pos += 5;
+          }
+
+          return highlighted_text;
+        }
+      }
+      catch (...) {
+        // Fall through to return unhighlighted content
+      }
+
+      // Remove newlines from content
+      std::string cleaned = content;
+      cleaned.erase(std::remove(cleaned.begin(), cleaned.end(), '\n'), cleaned.end());
+      cleaned.erase(std::remove(cleaned.begin(), cleaned.end(), '\r'), cleaned.end());
+      return cleaned;
+    };
+
+    while (std::getline(stream, line)) {
+      // Parse file headers to determine language and filename
+      if (line.starts_with("--- ") || line.starts_with("+++ ")) {
+        if (language.empty()) {
+          // Extract filename.
+          std::string_view filename_view = line;
+          filename_view.remove_prefix(4);
+
+          if (filename_view != _PATH_DEVNULL) {
+            // Store the filename (remove a/ or b/ prefix if present)
+            if (filename_view.starts_with("a/") || filename_view.starts_with("b/"))
+              filename = filename_view.substr(2);
+            else
+              filename = filename_view;
+
+            // Determine language from file extension
+            size_t dot = filename_view.rfind('.');
+            if (dot != std::string_view::npos) {
+              filename_view.remove_prefix(dot + 1);
+              // Translate extensions that are not normally handled.
+              if (filename_view == "c++" || filename_view == "h++")
+                language = "cpp";
+              else
+                language = filename_view;
+            }
+          }
+        }
+        continue;
+      }
+
+      // Parse hunk header: @@ -10,7 +10,8 @@ optional context
+      if (line.starts_with("@@")) {
+        size_t old_start_pos = line.find('-', 2);
+        if (old_start_pos != std::string::npos) {
+          ++old_start_pos;
+          size_t comma = line.find(',', old_start_pos);
+          size_t space = line.find(' ', old_start_pos);
+          size_t end = std::min(comma, space);
+
+          if (end != std::string::npos) {
+            try {
+              old_line = std::stoul(line.substr(old_start_pos, end - old_start_pos));
+            }
+            catch (...) {
+              old_line = 0;
+            }
+          }
+        }
+
+        size_t new_start_pos = line.find('+', old_start_pos);
+        if (new_start_pos != std::string::npos) {
+          ++new_start_pos;
+          size_t comma = line.find(',', new_start_pos);
+          size_t space = line.find(' ', new_start_pos);
+          size_t end = std::min(comma, space);
+
+          if (end != std::string::npos) {
+            try {
+              new_line = std::stoul(line.substr(new_start_pos, end - new_start_pos));
+            }
+            catch (...) {
+              new_line = 0;
+            }
+          }
+        }
+        continue;
+      }
+
+      // Collect diff lines with their info
+      if (line.empty())
+        continue;
+
+      char prefix = line[0];
+      std::string content = line.size() > 1 ? line.substr(1) : "";
+
+      if (prefix == '-') {
+        parsed_lines.push_back({prefix, content, old_line, 0});
+        if (old_line > max_old_line)
+          max_old_line = old_line;
+        ++old_line;
+      } else if (prefix == '+') {
+        parsed_lines.push_back({prefix, content, 0, new_line});
+        if (new_line > max_new_line)
+          max_new_line = new_line;
+        ++new_line;
+      } else if (prefix == ' ') {
+        parsed_lines.push_back({prefix, content, old_line, new_line});
+        if (old_line > max_old_line)
+          max_old_line = old_line;
+        if (new_line > max_new_line)
+          max_new_line = new_line;
+        ++old_line;
+        ++new_line;
+      } else
+        continue;
+    }
+
+    // Calculate column widths based on max line numbers
+    auto num_digits = [](unsigned n) -> unsigned {
+      if (n == 0)
+        return 1;
+      unsigned digits = 0;
+      while (n > 0) {
+        ++digits;
+        n /= 10;
+      }
+      return digits;
+    };
+
+    unsigned old_width = num_digits(max_old_line);
+    unsigned new_width = num_digits(max_new_line);
+
+    // Second pass: format lines with correct widths
+    // Format: " {old:old_width} ⋮ {new:new_width} │ content"
+    for (const auto& info : parsed_lines) {
+      std::string highlighted = highlight_content(info.content);
+      std::string formatted_line;
+
+      // Build old number part (right-aligned)
+      std::string old_num_part;
+      if (info.prefix == '-') {
+        // Removed: show old number in red, right-aligned
+        old_num_part = std::format("{}{}", color_escape(removed_num_fg, true), std::format("{:>{}}", info.old_num, old_width));
+      } else if (info.prefix == ' ') {
+        // Context: show old number in grey, right-aligned
+        old_num_part = std::format("{:>{}}", info.old_num, old_width);
+      } else {
+        // Added: empty
+        old_num_part = std::string(old_width, ' ');
+      }
+
+      // Build new number part (right-aligned)
+      std::string new_num_part;
+      if (info.prefix == '+') {
+        // Added: show new number in green, right-aligned
+        new_num_part = std::format("{}{}", color_escape(added_num_fg, true), std::format("{:>{}}", info.new_num, new_width));
+      } else if (info.prefix == ' ') {
+        // Context: show new number in grey, right-aligned
+        new_num_part = std::format("{:>{}}", info.new_num, new_width);
+      } else {
+        // Removed: empty
+        new_num_part = std::string(new_width, ' ');
+      }
+
+      // Build content with background
+      std::string content_part;
+      if (info.prefix == '-')
+        content_part = std::format("{}{}{}", color_escape(text_fg, true), color_escape(removed_bg, false), highlighted);
+      else if (info.prefix == '+')
+        content_part = std::format("{}{}{}", color_escape(text_fg, true), color_escape(added_bg, false), highlighted);
+      else
+        content_part = highlighted;
+
+      // Combine: " {grey}{old}{grey} ⋮ {new}{grey} │ {content}"
+      formatted_line = std::format(" {}{}{} {} {}{} {} {}", color_escape(line_num_fg, true), old_num_part, color_escape(line_num_fg, true), "\N{VERTICAL ELLIPSIS}", new_num_part, color_escape(line_num_fg, true), "\N{BOX DRAWINGS LIGHT VERTICAL}", content_part);
+
+      diff_lines.push_back(formatted_line);
+    }
+
+    if (! diff_lines.empty()) {
+      // Add filename at the beginning if available
+      if (! filename.empty())
+        diff_lines.insert(diff_lines.begin(), filename);
+
+      add_block(diff_lines);
+    }
   }
 
   void textbox::set_frame(frame_type ft)

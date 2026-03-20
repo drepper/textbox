@@ -51,6 +51,10 @@ namespace widget {
     /// @param markdown Markdown text to parse and add
     void add_markdown(const std::string& markdown);
 
+    /// Add unified diff content with syntax highlighting
+    /// @param udiff Unified diff text to parse and add
+    void add_udiff(const std::string& udiff);
+
     /// Set frame style
     /// @param ft Frame type
     void set_frame(frame_type ft);
