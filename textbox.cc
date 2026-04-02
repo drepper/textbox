@@ -684,7 +684,8 @@ namespace widget {
       }
 
       // Check for italic _..._
-      if (ch == '_') {
+      // Only recognize _ at beginning of line or after whitespace
+      if (ch == '_' && (pos_in == 0 || ::isspace(static_cast<unsigned char>(text[pos_in - 1])))) {
         size_t end = text.find('_', pos_in + 1);
         if (end != std::string::npos) {
           std::string italic_text = text.substr(pos_in + 1, end - pos_in - 1);
