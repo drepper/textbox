@@ -92,6 +92,13 @@ namespace widget {
     /// @param lines Minimum lines to keep available (default 5)
     void set_min_lines_remaining(unsigned lines);
 
+    /// Mark widget as complete (read-only, prevents further modifications)
+    void done();
+
+    /// Get widget height in terminal rows
+    /// @return Widget height
+    unsigned get_height() const;
+
   private:
     /// Paragraph data structure
     struct paragraph {

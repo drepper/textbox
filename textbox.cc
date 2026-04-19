@@ -250,6 +250,20 @@ namespace widget {
     min_lines_remaining = lines;
   }
 
+  void textbox::done()
+  {
+    if (!is_closed) {
+      is_closed = true;
+      // Don't clear content (set clear_if_empty = false)
+      clear_if_empty = false;
+    }
+  }
+
+  unsigned textbox::get_height() const
+  {
+    return widget_height;
+  }
+
   void textbox::add_text(const std::string& text)
   {
     assert(! is_closed && "Cannot add text to closed widget");
