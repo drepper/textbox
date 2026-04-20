@@ -1466,10 +1466,7 @@ namespace widget {
       content_width -= 2;
 
     int fd = term_info.get_fd();
-
-    // For the remainder of this function we need the file descriptor to be blocking.
-    int oldfl = ::fcntl(fd, F_GETFL);
-    ::fcntl(fd, F_SETFL, oldfl & ~O_NONBLOCK);
+    assert((::fcntl(fd, F_GETFL) & O_NONBLOCK) == 0);
 
     // Use different bullets for different levels
     static constexpr const std::array bullets{
@@ -1983,9 +1980,6 @@ namespace widget {
 
     // Mark as drawn
     has_been_drawn = true;
-
-    // Reset flags.
-    ::fcntl(fd, F_SETFL, oldfl);
   }
 
   unsigned textbox::calculate_display_width(const std::string& text) const
