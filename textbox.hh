@@ -30,7 +30,10 @@ namespace widget {
     struct default_screen_manager final : screen_manager {
       int fd;
 
-      explicit default_screen_manager(int fd_) : fd{fd_} {}
+      explicit default_screen_manager(int fd_)
+          : fd{fd_}
+      {
+      }
 
       /// Returns 0 to match current behavior (no fixed rows)
       unsigned get_fixed_rows() const override;
@@ -50,6 +53,9 @@ namespace widget {
     /// @param term Terminal information object
     /// @param name Widget name (also used as default title)
     textbox(const terminal::info& term, const std::string& name);
+
+    textbox(const textbox&) = delete;
+    textbox& operator=(const textbox&) = delete;
 
     /// Destructor - moves cursor to line after widget
     ~textbox();
