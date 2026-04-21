@@ -1875,8 +1875,15 @@ namespace widget {
 
       // Adjust screen lines if widget height changed
       int height_delta = static_cast<int>(new_height) - static_cast<int>(widget_height);
-      if (height_delta != 0)
+      if (height_delta != 0) {
+        // Position cursor on first content line before adjusting
+        if (frame != frame_type::none)
+          write_str(fd, "\n"); // Move down one line (past top frame)
         scr_mgr->adjust_lines(height_delta);
+        // Move cursor back to start of widget
+        if (frame != frame_type::none)
+          write_str(fd, "\e[1A"); // Move up one line
+      }
     }
 
     // Step 1: Draw the frame structure
@@ -1884,6 +1891,8 @@ namespace widget {
     std::string text_color = color_escape(text_fg, true);
     std::string bg_color = (frame == frame_type::background) ? color_escape(text_bg, false) : "";
     std::string content_spaces(content_width, ' ');
+
+    bool skip_top_frame = has_been_drawn && frame != frame_type::none;
 
     if (frame == frame_type::none) [[unlikely]] {
       // No frame - just draw empty lines with background
@@ -1900,33 +1909,39 @@ namespace widget {
     } else {
       bool is_line = frame == frame_type::line;
 
-      // Draw top frame
-      std::string tmpstr;
-      tmpstr.reserve(4 * content_width);
-      tmpstr = left_margin_spaces;
-      tmpstr.append(frame_color);
-      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}" : "\N{QUADRANT LOWER RIGHT}");
-      auto remaining = content_width;
-      if (! title.empty()) {
-        auto metrics = measure_text(title, content_width);
-        remaining -= metrics.display_width;
-        tmpstr.append(color_escape(title_fg, true));
-        tmpstr.append(color_escape(text_bg, false));
-        tmpstr.append(title.substr(0, metrics.byte_length));
-        tmpstr.append("\e[0m");
-      }
-      tmpstr.append(frame_color);
-      for (unsigned i = 0; i < remaining; ++i) {
-        static const char light_horiz[] = "\N{BOX DRAWINGS LIGHT HORIZONTAL}";
-        static const char lower_half[] = "\N{LOWER HALF BLOCK}";
-        tmpstr.append(is_line ? light_horiz : lower_half);
-      }
-      tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m" : "\N{QUADRANT LOWER LEFT}\e[0m");
-      tmpstr.append(clear_eol);
-      tmpstr.append("\n");
-      write_str(fd, tmpstr);
+      // Draw top frame (skip on redraw)
+      if (! skip_top_frame) {
+        std::string tmpstr;
+        tmpstr.reserve(4 * content_width);
+        tmpstr = left_margin_spaces;
+        tmpstr.append(frame_color);
+        tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND RIGHT}" : "\N{QUADRANT LOWER RIGHT}");
+        auto remaining = content_width;
+        if (! title.empty()) {
+          auto metrics = measure_text(title, content_width);
+          remaining -= metrics.display_width;
+          tmpstr.append(color_escape(title_fg, true));
+          tmpstr.append(color_escape(text_bg, false));
+          tmpstr.append(title.substr(0, metrics.byte_length));
+          tmpstr.append("\e[0m");
+        }
+        tmpstr.append(frame_color);
+        for (unsigned i = 0; i < remaining; ++i) {
+          static const char light_horiz[] = "\N{BOX DRAWINGS LIGHT HORIZONTAL}";
+          static const char lower_half[] = "\N{LOWER HALF BLOCK}";
+          tmpstr.append(is_line ? light_horiz : lower_half);
+        }
+        tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT ARC DOWN AND LEFT}\e[0m" : "\N{QUADRANT LOWER LEFT}\e[0m");
+        tmpstr.append(clear_eol);
+        tmpstr.append("\n");
+        write_str(fd, tmpstr);
+      } else
+        // Skip top frame on redraw, move to next line
+        write_str(fd, "\n");
 
       // Draw content area with just borders
+      std::string tmpstr;
+      tmpstr.reserve(4 * content_width);
       tmpstr = left_margin_spaces;
       tmpstr.append(frame_color);
       tmpstr.append(is_line ? "\N{BOX DRAWINGS LIGHT VERTICAL}" : "\N{RIGHT HALF BLOCK}");
@@ -1996,9 +2011,8 @@ namespace widget {
       }
 
       // Move cursor past bottom frame to line after widget
-      if (frame != frame_type::none) {
+      if (frame != frame_type::none)
         write_str(fd, "\n");
-      }
     }
 
     // Update height for next re-render
