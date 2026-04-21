@@ -180,8 +180,27 @@ namespace widget {
 
   } // anonymous namespace
 
+  unsigned textbox::default_screen_manager::get_fixed_rows() const
+  {
+    return 0;
+  }
+
+  void textbox::default_screen_manager::adjust_lines(int delta)
+  {
+    if (delta > 0) {
+      // Insert lines: CSI{n}L
+      std::string seq = std::format("\e[{}L", delta);
+      ::write(fd, seq.data(), seq.size());
+    } else if (delta < 0) {
+      // Delete lines: CSI{n}M
+      std::string seq = std::format("\e[{}M", -delta);
+      ::write(fd, seq.data(), seq.size());
+    }
+  }
+
   textbox::textbox(const terminal::info& term, const std::string& name)
-      : term_info{term}, widget_name{name}, title{name}
+      : term_info{term}, widget_name{name}, title{name},
+        default_scr_mgr{term_info.get_fd()}, scr_mgr{&default_scr_mgr}
   {
     // Move to column 1 to ensure clean starting position
     write_str(term_info.get_fd(), "\r");
@@ -1785,9 +1804,11 @@ namespace widget {
 
     // Check if widget would exceed available screen space
     bool lines_were_discarded = false;
-    if (term_height > min_lines_remaining && new_height > term_height - min_lines_remaining) {
+    unsigned fixed_rows = scr_mgr->get_fixed_rows();
+    unsigned reserved_lines = min_lines_remaining + fixed_rows;
+    if (term_height > reserved_lines && new_height > term_height - reserved_lines) {
       // Truncate to show only the last lines
-      unsigned available_lines = term_height - min_lines_remaining;
+      unsigned available_lines = term_height - reserved_lines;
       unsigned content_lines = available_lines;
       if (frame != frame_type::none)
         content_lines -= 2; // Account for frame
@@ -1851,6 +1872,11 @@ namespace widget {
     if (has_been_drawn) {
       move_cursor_up(widget_height);
       write_str(fd, "\r"); // Move to column 1
+
+      // Adjust screen lines if widget height changed
+      int height_delta = static_cast<int>(new_height) - static_cast<int>(widget_height);
+      if (height_delta != 0)
+        scr_mgr->adjust_lines(height_delta);
     }
 
     // Step 1: Draw the frame structure

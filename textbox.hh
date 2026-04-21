@@ -13,6 +13,32 @@ namespace widget {
 
   /// Text widget for terminal display with frame and formatting support
   struct textbox {
+    /// Screen management interface for handling scrolling and line preservation
+    struct screen_manager {
+      /// Get number of rows after textbox that must be preserved
+      /// @return Number of rows that should not be scrolled off screen
+      virtual unsigned get_fixed_rows() const = 0;
+
+      /// Insert or delete lines at current cursor position
+      /// @param delta Number of lines to insert (positive) or delete (negative)
+      virtual void adjust_lines(int delta) = 0;
+
+      virtual ~screen_manager() = default;
+    };
+
+    /// Default screen manager implementation
+    struct default_screen_manager final : screen_manager {
+      int fd;
+
+      explicit default_screen_manager(int fd_) : fd{fd_} {}
+
+      /// Returns 0 to match current behavior (no fixed rows)
+      unsigned get_fixed_rows() const override;
+
+      /// Insert or delete lines using CSI escape sequences
+      void adjust_lines(int delta) override;
+    };
+
     /// Frame rendering style
     enum class frame_type {
       none,      ///< No frame
@@ -160,6 +186,12 @@ namespace widget {
 
     // Minimum number of lines to keep available on screen (default 5)
     unsigned min_lines_remaining = 5;
+
+    // Default screen manager instance
+    default_screen_manager default_scr_mgr;
+
+    // Screen manager for handling scrolling and line preservation
+    screen_manager* scr_mgr;
 
     /// Render the widget to the terminal
     void render();
