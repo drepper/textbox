@@ -283,6 +283,11 @@ namespace widget {
     return widget_height;
   }
 
+  void textbox::set_screen_manager(screen_manager* mgr)
+  {
+    scr_mgr = mgr;
+  }
+
   void textbox::add_text(const std::string& text)
   {
     assert(! is_closed && "Cannot add text to closed widget");

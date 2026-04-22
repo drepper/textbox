@@ -131,6 +131,10 @@ namespace widget {
     /// @return Widget height
     unsigned get_height() const;
 
+    /// Set custom screen manager for handling scrolling and line preservation
+    /// @param mgr Pointer to screen manager (must outlive textbox)
+    void set_screen_manager(screen_manager* mgr);
+
   private:
     /// Paragraph data structure
     struct paragraph {
