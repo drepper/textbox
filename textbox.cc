@@ -199,8 +199,7 @@ namespace widget {
   }
 
   textbox::textbox(const terminal::info& term, const std::string& name)
-      : term_info{term}, widget_name{name}, title{name},
-        default_scr_mgr{term_info.get_fd()}, scr_mgr{&default_scr_mgr}
+      : term_info{term}, widget_name{name}, title{name}, default_scr_mgr{term_info.get_fd()}, scr_mgr{&default_scr_mgr}
   {
     // Move to column 1 to ensure clean starting position
     write_str(term_info.get_fd(), "\r");
@@ -271,7 +270,7 @@ namespace widget {
 
   void textbox::done()
   {
-    if (!is_closed) {
+    if (! is_closed) {
       is_closed = true;
       // Don't clear content (set clear_if_empty = false)
       clear_if_empty = false;
@@ -1889,7 +1888,9 @@ namespace widget {
         if (frame != frame_type::none)
           write_str(fd, "\e[1A"); // Move up one line
       }
-    }
+    } else
+      // Size of the initial widget.
+      scr_mgr->adjust_lines((frame == frame_type::none ? 0 : 2) + widget_height);
 
     // Step 1: Draw the frame structure
     std::string frame_color = color_escape(frame_fg, true);
