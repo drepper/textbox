@@ -894,7 +894,7 @@ namespace widget {
               numbering += "  ";
             }
 
-            paragraphs[h.para_idx].content = color_escape(hx_fg[h.level - 1], true) + numbering + h.text + "\e[0m";
+            paragraphs[h.para_idx].content = color_escape(hx_fg[h.level - 1], true) + numbering + process_inline_formatting(h.text) + "\e[0m";
           }
 
           // Move past heading and its newline
