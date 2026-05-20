@@ -64,6 +64,9 @@ namespace widget {
       const char* end = p + text.size();
 
       while (p < end && result.display_width < max_width) {
+        if (*p == '\n')
+          break;
+
         // Check for escape sequences
         if (*p == '\e') {
           const char* seq_start = p;
@@ -2057,7 +2060,7 @@ namespace widget {
         // Try to break at space if we're not at end of text
         if (break_point < text.size()) {
           size_t last_space = text.rfind(' ', break_point);
-          if (last_space != std::string::npos && last_space > pos)
+          if (last_space != std::string::npos && last_space > pos && text[break_point] != '\n')
             break_point = last_space; // Don't include the space in the line
         }
 
@@ -2070,9 +2073,13 @@ namespace widget {
         lines.push_back(std::move(line));
         pos = break_point;
 
-        // Skip leading spaces on next line
-        while (pos < text.size() && text[pos] == ' ')
+        if (pos < text.size() && text[pos] == '\n') {
           ++pos;
+        } else {
+          // Skip leading spaces on next line
+          while (pos < text.size() && text[pos] == ' ')
+            ++pos;
+        }
       }
     }
 
